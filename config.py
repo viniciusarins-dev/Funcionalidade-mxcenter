@@ -69,19 +69,29 @@ COL_QTD = int(_env("COL_QTD", "2"))
 # div.galleryItem com o atributo data-src apontando pro arquivo.
 SEL_GALERIA_ITEM = _env("SEL_GALERIA_ITEM", ".galeriaImagens .galleryItem")
 
-# --- Relatório de Ranking de Produtos (saída/vendas do mês) — AJUSTAR ---
-# Tela: View/Relatorio/RelatorioRankingProdutos.aspx. Ainda não inspecionada
-# no HTML real — ver GUIA_SELETORES.md (Passo 7) pra descobrir os valores
-# certos com testar_reposicao.py.
+# --- Relatório de Ranking de Produtos (saída/vendas do mês) — validado
+# em 2026-08-11. Tela: View/Relatorio/RelatorioRankingProdutos.aspx.
+# Usa o controle Microsoft ReportViewer — o HTML da tabela renderizada
+# tem classes CSS geradas por sessão, não confiável pra seletor fixo. Em
+# vez de ler a tela, o scraper preenche Data Inicial/Final, exporta o
+# relatório pra Excel (.xlsx real, confirmado — não é HTML disfarçado) e
+# lê o arquivo baixado com openpyxl (ver _buscar_saida_mes_produto_interno
+# em scraper.py).
 WTTI_RANKING_URL = _env("WTTI_RANKING_URL", f"{WTTI_BASE_URL}/View/Relatorio/RelatorioRankingProdutos.aspx")
-# Campo de mês/período do filtro do relatório. Deixe vazio se a tela já
-# carrega o mês atual sozinha, sem precisar preencher nada.
-SEL_RANKING_MES_INPUT = _env("SEL_RANKING_MES_INPUT", "")
-SEL_RANKING_SUBMIT = _env("SEL_RANKING_SUBMIT", "")  # deixe vazio se não houver botão de aplicar filtro
-SEL_RANKING_TABELA = _env("SEL_RANKING_TABELA", "#gdwRanking")
-SEL_RANKING_LINHAS = _env("SEL_RANKING_LINHAS", "#gdwRanking tbody tr")
-COL_RANKING_CODIGO = int(_env("COL_RANKING_CODIGO", "0"))
-COL_RANKING_QTD = int(_env("COL_RANKING_QTD", "1"))
+SEL_RANKING_DATA_INICIAL = _env("SEL_RANKING_DATA_INICIAL", "#ctl00_ContentPlaceHolder1_relatorioApplet_ctl07_txtValor")
+SEL_RANKING_DATA_FINAL = _env("SEL_RANKING_DATA_FINAL", "#ctl00_ContentPlaceHolder1_relatorioApplet_ctl08_txtValor")
+SEL_RANKING_SUBMIT = _env("SEL_RANKING_SUBMIT", "#btnConsultar")
+# Ícone que abre o menu de exportação (Excel/PDF/Word) do ReportViewer.
+# O link "Excel" dentro do menu não tem id (gerado em runtime) — o
+# scraper localiza ele pelo texto visível, não por seletor CSS.
+SEL_RANKING_EXPORT_BOTAO = _env(
+    "SEL_RANKING_EXPORT_BOTAO",
+    "#ctl00_ContentPlaceHolder1_relatorioApplet_reportView_ctl05_ctl04_ctl00_ButtonImg",
+)
+# Texto exato do cabeçalho das colunas no Excel exportado (não índice —
+# mais robusto a reordenação de colunas no relatório).
+COL_RANKING_CODIGO_NOME = _env("COL_RANKING_CODIGO_NOME", "Cod Produto")
+COL_RANKING_QTD_NOME = _env("COL_RANKING_QTD_NOME", "Qtd.")
 
 # --- Tela de Manutenção de Estoque por Filial (validado em 2026-08-11
 # com testar_reposicao.py, produto 203 = "BATENTE 16MM - SHOWA", estoque

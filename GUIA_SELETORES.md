@@ -1,13 +1,11 @@
 # Guia — Encontrando os seletores certos do WTTI
 
-> **Status (2026-08-11):** login e busca de nota (Passos 1-6 abaixo) já
-> estão validados de ponta a ponta — `testar_login.py` e
-> `testar_busca.py 3944` rodaram com sucesso usando os valores que já vêm
-> como default em `config.py`/`.env.example`. **Pendente:** os seletores
-> da sidebar de reposição (saída do mês + estoque, Passo 7) ainda não
-> foram inspecionados no HTML real — são só um palpite. Este guia
-> continua valendo como referência pra quando o WTTI mudar de layout no
-> futuro e algum seletor parar de bater.
+> **Status (2026-08-11):** todos os fluxos abaixo já estão validados —
+> login, busca de nota (Passos 1-6) e a sidebar de reposição/saída do
+> mês (Passo 7, estoque validado end-to-end; ranking de produtos
+> validado por inspeção do HTML real, com export de Excel em vez de
+> leitura de tabela). Este guia continua valendo como referência pra
+> quando o WTTI mudar de layout no futuro e algum seletor parar de bater.
 
 Siga esses passos na ordem. Cada um leva 2-5 minutos. Não precisa saber
 programar — é só inspecionar a página e copiar um texto.
@@ -207,35 +205,52 @@ os valores default atuais).
 
 ## Passo 7 — Seletores da sidebar de reposição (saída do mês + estoque)
 
-Diferente dos passos anteriores, essas duas telas **ainda não foram
-inspecionadas** — os valores em `.env.example`/`config.py` são só um
-palpite razoável baseado no padrão do resto do sistema (grids `gdwXxx`).
-É bem provável que precisem de ajuste na primeira rodada.
-
-### 7.1 — Relatório de Ranking de Produtos (saída do mês)
+### 7.1 — Relatório de Ranking de Produtos (saída do mês) ✅ (validado em 2026-08-11)
 
 URL: `https://mxcenter.wtti.app/View/Relatorio/RelatorioRankingProdutos.aspx`
 
-1. Acesse a tela logado e repare: ela já carrega o mês atual sozinha, ou
-   precisa selecionar um mês/período antes de mostrar a lista?
-   - Se **já carrega sozinha**: deixe `SEL_RANKING_MES_INPUT` e
-     `SEL_RANKING_SUBMIT` vazios no `.env` (o scraper pula essa etapa).
-   - Se **precisa selecionar um período**: inspecione (botão direito →
-     Inspecionar) o campo de mês/data e o botão de aplicar filtro, anote
-     os `id`s em `SEL_RANKING_MES_INPUT` e `SEL_RANKING_SUBMIT`. Me avisa
-     também qual é o formato esperado (ex: `08/2026`, `2026-08`, um
-     dropdown de mês + outro de ano) — o `scraper.py` precisa saber pra
-     preencher certo (hoje ele tenta preencher com string vazia, que
-     provavelmente vai precisar virar código específico depois que você
-     descrever o campo).
-2. Inspecione a **tabela de resultados** (a lista de produtos com
-   quantidade vendida). Anote o `id` dela em `SEL_RANKING_TABELA`, e o
-   seletor de linha (geralmente `#idDaTabela tbody tr`) em
-   `SEL_RANKING_LINHAS`.
-3. Conte as colunas da tabela da esquerda pra direita (começando do 0) e
-   anote em `.env`:
-   - `COL_RANKING_CODIGO` — coluna com o código do produto.
-   - `COL_RANKING_QTD` — coluna com a quantidade vendida/saída no período.
+Essa tela **não é um grid simples** como as outras — é o filtro de um
+relatório (Data Inicial/Data Final + outros filtros) que, ao clicar em
+"Pesquisar", renderiza o resultado usando o controle **Microsoft
+ReportViewer** (o mesmo usado em relatórios SSRS/RDLC). O HTML da tabela
+de resultado tem classes CSS geradas dinamicamente por sessão — não dá
+pra confiar num seletor CSS fixo pra ler linha por linha, ao contrário
+dos grids `gdwXxx` do resto do sistema.
+
+**Solução adotada:** em vez de ler a tabela na tela, o scraper preenche
+o período, clica em Pesquisar, e então usa o próprio botão de
+**exportar pra Excel** do ReportViewer (ícone de disquete no canto do
+relatório) — o arquivo `.xlsx` baixado é lido com a biblioteca
+`openpyxl`. Confirmado que é um `.xlsx` binário real (não HTML
+disfarçado de Excel, que é uma pegadinha comum em versões antigas desse
+controle) — inspecionado com Bloco de Notas, o arquivo começa com a
+assinatura ZIP (`[Content_Types].xml`, `xl/worksheets/sheet1.xml` etc.).
+
+Seletores confirmados:
+```
+SEL_RANKING_DATA_INICIAL=#ctl00_ContentPlaceHolder1_relatorioApplet_ctl07_txtValor
+SEL_RANKING_DATA_FINAL=#ctl00_ContentPlaceHolder1_relatorioApplet_ctl08_txtValor
+SEL_RANKING_SUBMIT=#btnConsultar
+SEL_RANKING_EXPORT_BOTAO=#ctl00_ContentPlaceHolder1_relatorioApplet_reportView_ctl05_ctl04_ctl00_ButtonImg
+```
+
+O link "Excel" dentro do menu de exportação não tem `id` (é gerado em
+runtime pelo ReportViewer) — o scraper localiza ele pelo texto visível
+"Excel" (`By.LINK_TEXT`), confirmado no HTML real:
+```html
+<a onclick="$find('...reportView').exportReport('EXCELOPENXML');" ...>Excel</a>
+```
+
+O scraper acha as colunas certas procurando pelo **texto do cabeçalho**
+no Excel (`COL_RANKING_CODIGO_NOME=Cod Produto`, `COL_RANKING_QTD_NOME=Qtd.`),
+não por índice fixo — o arquivo exportado tem várias linhas de
+letterhead/filtros antes da tabela de dados de verdade, então procurar
+pelo texto do cabeçalho é mais confiável do que contar linhas.
+
+**Se algum dia isso parar de funcionar:** o motivo mais provável é o
+texto do cabeçalho ter mudado (ex: "Cod Produto" virou "Código") ou o
+`id` do ícone de exportar ter mudado — os dois são fáceis de reconferir
+inspecionando a tela de novo.
 
 ### 7.2 — Manutenção de Estoque por Filial ✅ (validado em 2026-08-11)
 

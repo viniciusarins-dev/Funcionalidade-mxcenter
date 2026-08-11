@@ -19,10 +19,14 @@ inspecionar a tela de consulta de nota com o DevTools do navegador.
 
 import os
 import time
+import shutil
+import tempfile
 import threading
 import logging
 import datetime
 from functools import wraps
+
+import openpyxl
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -98,11 +102,14 @@ class WttiScraper:
         self._driver = None
         self._logado = False
         self._lock = threading.RLock()
+        self._download_dir = None
 
     # -----------------------------------------------------------------
     # Ciclo de vida do driver
     # -----------------------------------------------------------------
     def _criar_driver(self):
+        self._download_dir = tempfile.mkdtemp(prefix="wtti_downloads_")
+
         options = Options()
         if config.HEADLESS:
             options.add_argument("--headless=new")
@@ -122,6 +129,13 @@ class WttiScraper:
             "profile.password_manager_enabled": False,
             "profile.password_manager_leak_detection": False,
             "profile.default_content_setting_values.notifications": 2,
+            # Exportação do Relatório Ranking de Produtos (saída do mês)
+            # baixa um .xlsx real — evita o diálogo "Salvar como" e manda
+            # direto pra essa pasta temporária, isolada por instância do driver.
+            "download.default_directory": self._download_dir,
+            "download.prompt_for_download": False,
+            "download.directory_upgrade": True,
+            "safebrowsing.enabled": True,
         })
         options.add_argument("--disable-notifications")
         options.add_argument(
@@ -130,6 +144,17 @@ class WttiScraper:
         driver = webdriver.Chrome(options=options)
         driver.implicitly_wait(config.IMPLICIT_WAIT_SECONDS)
         driver.set_page_load_timeout(config.EXPLICIT_WAIT_SECONDS * 2)
+
+        # Chrome headless bloqueia downloads por padrão por segurança,
+        # ignorando as prefs acima — precisa liberar explicitamente via CDP.
+        try:
+            driver.execute_cdp_cmd("Page.setDownloadBehavior", {
+                "behavior": "allow",
+                "downloadPath": self._download_dir,
+            })
+        except Exception as e:
+            logger.warning("Não consegui habilitar download via CDP (%s) — exportação de relatório pode falhar.", e)
+
         return driver
 
     def _garantir_driver(self):
@@ -147,9 +172,15 @@ class WttiScraper:
                 self._driver.quit()
             except Exception:
                 pass  # já pode estar morto mesmo
+        self._limpar_download_dir()
         self._driver = None
         self._logado = False
         self._garantir_driver()
+
+    def _limpar_download_dir(self):
+        if self._download_dir is not None:
+            shutil.rmtree(self._download_dir, ignore_errors=True)
+            self._download_dir = None
 
     def encerrar(self):
         with self._lock:
@@ -157,6 +188,7 @@ class WttiScraper:
                 self._driver.quit()
                 self._driver = None
                 self._logado = False
+            self._limpar_download_dir()
 
     # -----------------------------------------------------------------
     # Diagnóstico — screenshot + HTML no momento do erro
@@ -358,21 +390,126 @@ class WttiScraper:
         )
 
     def _buscar_saida_mes_produto_interno(self, codigo_produto):
+        """O Relatório de Ranking de Produtos usa o controle Microsoft
+        ReportViewer, cujo HTML da tabela renderizada tem classes CSS
+        geradas por sessão — não dá pra confiar em seletor fixo pra ler a
+        tabela na tela. Em vez disso: preenche o período (1º dia do mês
+        atual até hoje), exporta o relatório pra Excel (.xlsx real, não
+        HTML disfarçado — confirmado em 2026-08-11) e lê o arquivo
+        baixado com openpyxl."""
         self._driver.get(config.WTTI_RANKING_URL)
 
-        if config.SEL_RANKING_MES_INPUT:
-            self._preencher(config.SEL_RANKING_MES_INPUT, "")  # AJUSTAR: valor do mês/período desejado
-            if config.SEL_RANKING_SUBMIT:
-                self._clicar(config.SEL_RANKING_SUBMIT)
+        hoje = datetime.date.today()
+        primeiro_dia_mes = hoje.replace(day=1)
+        self._preencher(config.SEL_RANKING_DATA_INICIAL, primeiro_dia_mes.strftime("%d/%m/%Y"))
+        self._preencher(config.SEL_RANKING_DATA_FINAL, hoje.strftime("%d/%m/%Y"))
+        self._clicar(config.SEL_RANKING_SUBMIT)
 
-        return self._extrair_valor_de_grid(
-            tabela_sel=config.SEL_RANKING_TABELA,
-            linhas_sel=config.SEL_RANKING_LINHAS,
-            col_codigo=config.COL_RANKING_CODIGO,
-            col_valor=config.COL_RANKING_QTD,
-            codigo_produto=codigo_produto,
-            rotulo_erro="ranking",
+        caminho_excel = self._exportar_ranking_excel()
+        return self._ler_qtd_do_excel(caminho_excel, codigo_produto)
+
+    def _exportar_ranking_excel(self):
+        # Limpa a pasta de downloads antes de exportar, pra não confundir
+        # um arquivo de uma exportação anterior com o novo.
+        for nome_arquivo in os.listdir(self._download_dir):
+            try:
+                os.remove(os.path.join(self._download_dir, nome_arquivo))
+            except OSError:
+                pass
+
+        self._clicar(config.SEL_RANKING_EXPORT_BOTAO)
+        # O menu que abre não tem id (é gerado pelo controle ReportViewer em
+        # runtime) — o texto visível "Excel" é o único ponto de referência
+        # estável, confirmado inspecionando o HTML real do menu.
+        link_excel = self._wait().until(EC.element_to_be_clickable((By.LINK_TEXT, "Excel")))
+        link_excel.click()
+
+        return self._esperar_download_completo(self._download_dir, ".xlsx")
+
+    def _esperar_download_completo(self, pasta, sufixo, timeout=None):
+        """Espera um arquivo novo com o sufixo dado aparecer na pasta de
+        downloads e ter o tamanho estável entre duas checagens seguidas
+        (sinal de que o Chrome terminou de escrever o arquivo)."""
+        timeout = timeout or config.EXPLICIT_WAIT_SECONDS
+        limite = time.time() + timeout
+        ultimo_tamanho = None
+        ultimo_caminho = None
+
+        while time.time() < limite:
+            candidatos = [
+                f for f in os.listdir(pasta)
+                if f.lower().endswith(sufixo) and ".crdownload" not in f.lower()
+            ]
+            if candidatos:
+                caminho = max(
+                    (os.path.join(pasta, f) for f in candidatos),
+                    key=os.path.getmtime,
+                )
+                tamanho = os.path.getsize(caminho)
+                if caminho == ultimo_caminho and tamanho == ultimo_tamanho and tamanho > 0:
+                    return caminho
+                ultimo_caminho, ultimo_tamanho = caminho, tamanho
+            time.sleep(0.3)
+
+        self._salvar_evidencia_erro("download_ranking_nao_apareceu")
+        raise ErroWtti(
+            f"O download do relatório de ranking não apareceu em {pasta} "
+            f"depois de {timeout}s."
         )
+
+    def _ler_qtd_do_excel(self, caminho_arquivo, codigo_produto):
+        """Lê o .xlsx exportado do Relatório de Ranking de Produtos e
+        devolve a quantidade da linha cujo "Cod Produto" bate com
+        codigo_produto. Acha a linha de cabeçalho procurando pelo texto
+        configurado (não assume índice fixo de linha/coluna, porque o
+        relatório tem várias linhas de cabeçalho/filtro antes da tabela
+        de dados de verdade — ver print do relatório)."""
+        try:
+            workbook = openpyxl.load_workbook(caminho_arquivo, read_only=True, data_only=True)
+            planilha = workbook.active
+
+            col_codigo = col_qtd = None
+            for linha in planilha.iter_rows(values_only=True):
+                if col_codigo is None or col_qtd is None:
+                    for idx, valor in enumerate(linha):
+                        texto = str(valor).strip() if valor is not None else ""
+                        if texto == config.COL_RANKING_CODIGO_NOME:
+                            col_codigo = idx
+                        elif texto == config.COL_RANKING_QTD_NOME:
+                            col_qtd = idx
+                    continue  # essa linha é cabeçalho ou lixo antes da tabela — nunca é dado
+
+                if len(linha) <= max(col_codigo, col_qtd):
+                    continue
+
+                if self._normalizar_codigo(linha[col_codigo]) != self._normalizar_codigo(codigo_produto):
+                    continue
+
+                valor_qtd = linha[col_qtd]
+                return float(valor_qtd) if valor_qtd is not None else 0.0
+
+            # Produto não apareceu no ranking do período: sem saída, não é erro.
+            return 0.0
+
+        finally:
+            try:
+                os.remove(caminho_arquivo)
+            except OSError:
+                pass
+
+    @staticmethod
+    def _normalizar_codigo(valor):
+        """Códigos puramente numéricos (ex: 168) podem vir do Excel como
+        float (168.0) via openpyxl, enquanto códigos alfanuméricos (ex:
+        1380T) vêm como texto — normaliza os dois lados da comparação pro
+        mesmo formato de string."""
+        texto = str(valor).strip() if valor is not None else ""
+        if texto.endswith(".0"):
+            try:
+                return str(int(float(texto)))
+            except ValueError:
+                pass
+        return texto
 
     def _extrair_valor_de_grid(self, tabela_sel, linhas_sel, col_codigo, col_valor, codigo_produto, rotulo_erro):
         """Escaneia as linhas de um grid procurando a linha cujo texto na
