@@ -26,18 +26,6 @@ WTTI_SEARCH_URL = _env("WTTI_SEARCH_URL", f"{WTTI_BASE_URL}/ConsultaNota.aspx") 
 WTTI_USER = _env("WTTI_USER", required=True)
 WTTI_PASS = _env("WTTI_PASS", required=True)
 
-# --- SEFAZ / Certificado Digital (legado — bloqueado pra notas de venda,
-# pois a SEFAZ impede o emitente de consultar o próprio XML via
-# NFeDistribuicaoDFe, regra H17 da NT2014.002. Mantido só pra referência
-# futura, caso um dia sirva pra notas de COMPRA, onde a empresa é
-# destinatária.) ---------------------------------------------------------
-CERT_PATH = _env("CERT_PATH", "")
-CERT_PASSWORD = _env("CERT_PASSWORD", "")
-EMPRESA_CNPJ = _env("EMPRESA_CNPJ", "")
-UF_EMPRESA = _env("UF_EMPRESA", "")
-AMBIENTE = _env("AMBIENTE", "producao")
-SEFAZ_TIMEOUT = int(_env("SEFAZ_TIMEOUT", "30"))
-
 # --- Selenium ---------------------------------------------------------
 HEADLESS = _env("HEADLESS", "true").lower() == "true"
 IMPLICIT_WAIT_SECONDS = int(_env("IMPLICIT_WAIT_SECONDS", "0"))  # manter 0, usar waits explícitos
