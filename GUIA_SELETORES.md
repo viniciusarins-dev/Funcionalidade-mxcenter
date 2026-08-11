@@ -1,12 +1,10 @@
 # Guia — Encontrando os seletores certos do WTTI
 
-> **Status (2026-08-11):** login e busca de nota (Passos 1-6) validados
-> de ponta a ponta. A sidebar de reposição (Passo 7) foi migrada pro
-> Relatório Produto x Saldo — seletores confirmados por inspeção do HTML
-> real, mas a execução completa (rodar `testar_reposicao.py` contra o
-> WTTI de verdade) ainda não aconteceu com esse fluxo novo. Este guia
-> continua valendo como referência pra quando o WTTI mudar de layout no
-> futuro e algum seletor parar de bater.
+> **Status (2026-08-11):** tudo validado de ponta a ponta contra o WTTI
+> real — login, busca de nota (Passos 1-6) e a sidebar de reposição via
+> Relatório Produto x Saldo (Passo 7), incluindo o caso de códigos que
+> precisam de paginação. Este guia continua valendo como referência pra
+> quando o WTTI mudar de layout no futuro e algum seletor parar de bater.
 
 Siga esses passos na ordem. Cada um leva 2-5 minutos. Não precisa saber
 programar — é só inspecionar a página e copiar um texto.
@@ -242,11 +240,34 @@ nas linhas seguintes do mesmo mês, vem em branco. O scraper guarda o
 cronológica decrescente) e para assim que sai do bloco do mês atual —
 não precisa escanear a tabela inteira.
 
+### Pegadinha da paginação do `#gdwProdutos` ✅ (corrigida em 2026-08-11)
+
+A busca no campo Produto é por "**contém**", não por código exato — o
+código `#gdwProdutos` faz uma busca ampla: buscar `"45"` traz `1145`,
+`1245`, `145`, `1457`... espalhados por várias páginas, e o código exato
+`"45"` pode estar em qualquer uma delas (ou em nenhuma). Testado com o
+código real `41` — existia, mas estava na página 2.
+
+**Erro que já aconteceu:** a linha de paginação (`<tr
+class="gridviewPaginacao">`) fica numa **tabela separada** —
+`#tbPaginacao` — que **não é descendente** de `#gdwProdutos`, é uma
+tabela irmã em outro lugar da página (confirmado inspecionando o
+breadcrumb do DevTools). A primeira versão do código procurava a
+paginação DENTRO de `#gdwProdutos` (`#gdwProdutos tr.gridviewPaginacao`),
+nunca achava nada, e desistia sempre na primeira página — mesmo quando
+o produto existia numa página seguinte. Corrigido usando
+`SEL_SALDO_PAGINACAO=#tbPaginacao` como seletor independente.
+
+O scraper agora percorre as páginas clicando no link da próxima
+(`_ir_para_proxima_pagina_produtos`) até achar o código exato ou
+esgotar a paginação (limite de segurança: 20 páginas).
+
 ### Seletores confirmados (por inspeção do HTML real em 2026-08-11)
 
 ```
 SEL_SALDO_PRODUTO_INPUT=#txtCodProduto
 SEL_SALDO_GRID_PRODUTOS=#gdwProdutos
+SEL_SALDO_PAGINACAO=#tbPaginacao
 COL_SALDO_CODIGO=0
 COL_SALDO_DESCRICAO=1
 COL_SALDO_ESTOQUE_SEM_RESERVA=4
@@ -267,10 +288,11 @@ ignorada) — bate certinho com o algoritmo implementado.
 python testar_reposicao.py <codigo_de_um_produto_que_voce_sabe_o_estoque_e_a_saida>
 ```
 
-**Ainda não rodou contra o WTTI real** (só a lógica de soma foi testada
-isoladamente com dados simulados) — essa é a primeira execução de
-ponta a ponta. Se der erro, confira `debug_screenshots/` e os seletores
-acima contra o HTML real da tela.
+**Validado de ponta a ponta em 2026-08-11** contra o WTTI real: código
+`571` (BATENTE 14MM - CRF250F, estoque 136, saída 25) e código `139`
+funcionaram direto na primeira página. Códigos curtos que precisam de
+paginação (`41`, `45`) só passaram a funcionar depois da correção do
+`SEL_SALDO_PAGINACAO` acima.
 
 ---
 

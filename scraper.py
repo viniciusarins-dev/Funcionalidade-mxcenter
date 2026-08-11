@@ -401,13 +401,15 @@ class WttiScraper:
         return None
 
     def _ir_para_proxima_pagina_produtos(self):
-        """Clica no link da próxima página de #gdwProdutos (linha
-        <tr class="gridviewPaginacao">, com a página atual num <span> sem
-        link e as outras em <a>). Devolve True se avançou, False se já
+        """Clica no link da próxima página. A paginação fica numa tabela
+        SEPARADA (#tbPaginacao), fora de #gdwProdutos — não é descendente
+        do grid, é uma tabela irmã na página. A linha
+        <tr class="gridviewPaginacao"> tem a página atual num <span> sem
+        link e as outras em <a>. Devolve True se avançou, False se já
         estava na última página ou não tinha paginação nenhuma."""
         try:
             linha_paginacao = self._driver.find_element(
-                By.CSS_SELECTOR, f"{config.SEL_SALDO_GRID_PRODUTOS} tr.gridviewPaginacao"
+                By.CSS_SELECTOR, f"{config.SEL_SALDO_PAGINACAO} tr.gridviewPaginacao"
             )
         except NoSuchElementException:
             return False  # resultado cabe numa página só, sem paginação

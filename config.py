@@ -84,6 +84,11 @@ SEL_SALDO_PRODUTO_INPUT = _env("SEL_SALDO_PRODUTO_INPUT", "#txtCodProduto")
 # de um produto parecido (ex: 571 e 1571) — o match é sempre por texto
 # EXATO da coluna Código, nunca o primeiro resultado.
 SEL_SALDO_GRID_PRODUTOS = _env("SEL_SALDO_GRID_PRODUTOS", "#gdwProdutos")
+# A paginação desse grid fica numa TABELA SEPARADA (#tbPaginacao), fora
+# de #gdwProdutos — confirmado em 2026-08-11 inspecionando o HTML real.
+# Buscas amplas (ex: "45", "41") podem espalhar o código exato por várias
+# páginas — o scraper percorre até achar.
+SEL_SALDO_PAGINACAO = _env("SEL_SALDO_PAGINACAO", "#tbPaginacao")
 COL_SALDO_CODIGO = int(_env("COL_SALDO_CODIGO", "0"))
 COL_SALDO_DESCRICAO = int(_env("COL_SALDO_DESCRICAO", "1"))
 COL_SALDO_ESTOQUE_SEM_RESERVA = int(_env("COL_SALDO_ESTOQUE_SEM_RESERVA", "4"))
