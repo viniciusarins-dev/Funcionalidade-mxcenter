@@ -68,6 +68,9 @@ COL_QTD = int(_env("COL_QTD", "2"))
 # (View/Cadastro/CadastroProduto.aspx?UID=<codigo>). Cada imagem é um
 # div.galleryItem com o atributo data-src apontando pro arquivo.
 SEL_GALERIA_ITEM = _env("SEL_GALERIA_ITEM", ".galeriaImagens .galleryItem")
+# Estoque Mínimo cadastrado do produto — mesma tela acima (painel
+# #pnlDetalhesProduto), validado em 2026-08-11.
+SEL_ESTOQUE_MINIMO = _env("SEL_ESTOQUE_MINIMO", "#lblEstoqueProdutoMin")
 
 # --- Relatório Produto x Saldo (estoque atual + médias mensais de
 # saída/compra desde 01/01, com histórico por NF/cliente) — validado em

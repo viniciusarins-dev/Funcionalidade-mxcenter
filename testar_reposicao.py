@@ -43,13 +43,15 @@ try:
     print("\n✅ CONSULTA FUNCIONOU!")
     print(f"Produto: {resultado['produto']}")
     print(f"Estoque no sistema (s/ reservas): {resultado['estoque']}")
+    print(f"Estoque mínimo cadastrado: {resultado['estoque_minimo']}")
     print(f"Saída média/mês (desde 01/01): {resultado['saida_media_mensal']}")
     print(f"Compra média/mês (desde 01/01): {resultado['compra_media_mensal']}")
     print(
         "\nSe os números batem com o que você vê manualmente no WTTI, os "
         "seletores estão corretos. Se vier estoque errado, confira "
-        "COL_SALDO_CODIGO/COL_SALDO_ESTOQUE_SEM_RESERVA; se as médias "
-        "vierem erradas, confira COL_HISTORICO_TIPO/QTD e os campos de data "
+        "COL_SALDO_CODIGO/COL_SALDO_ESTOQUE_SEM_RESERVA; se o mínimo vier "
+        "errado, confira SEL_ESTOQUE_MINIMO; se as médias vierem erradas, "
+        "confira COL_HISTORICO_TIPO/QTD e os campos de data "
         "SEL_SALDO_DATA_INICIAL/FINAL (veja GUIA_SELETORES.md, Passo 7)."
     )
 

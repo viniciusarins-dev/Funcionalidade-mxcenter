@@ -387,24 +387,46 @@
             <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Compra média/mês</p>
             <p id="reposicao-compra-mes" class="font-mono text-2xl mt-1">—</p>
           </div>
-          <div class="col-span-2 bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
+          <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
             <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Estoque no sistema</p>
             <p id="reposicao-estoque-sistema" class="font-mono text-2xl mt-1">—</p>
           </div>
+          <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
+            <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Estoque mínimo</p>
+            <p id="reposicao-estoque-minimo" class="font-mono text-2xl mt-1">—</p>
+          </div>
         </div>
-        <p class="text-[10px] text-[color:var(--ink-dim)] -mt-2">Médias calculadas desde 01/01 deste ano até hoje.</p>
+        <p class="text-[10px] text-[color:var(--ink-dim)] -mt-2">Médias calculadas desde 01/01 deste ano até hoje. Estoque mínimo é o valor cadastrado no WTTI.</p>
         <p id="reposicao-furo" class="hidden text-xs font-mono -mt-2"></p>
 
-        <div>
-          <label for="reposicao-meses" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Meses de cobertura</label>
-          <input id="reposicao-meses" type="number" inputmode="decimal" min="0.5" step="0.5" value="2"
-            class="w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)]">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="reposicao-meses" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Meses de cobertura</label>
+            <input id="reposicao-meses" type="number" inputmode="decimal" min="0.5" step="0.5" value="2"
+              class="w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)]">
+          </div>
+          <div>
+            <label for="reposicao-margem-minimo" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Margem s/ mínimo (%)</label>
+            <input id="reposicao-margem-minimo" type="number" inputmode="decimal" min="0" step="10" value="50"
+              class="w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)]">
+          </div>
         </div>
 
-        <div class="bg-[color:var(--bg-card)] border-2 border-[color:var(--yellow)] rounded-xl px-4 py-4 text-center">
-          <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--yellow)]">Sugestão de pedido</p>
-          <p id="reposicao-sugestao" class="font-display text-3xl mt-1">—</p>
-          <p id="reposicao-sugestao-formula" class="font-mono text-[10px] text-[color:var(--ink-dim)] mt-1"></p>
+        <!-- Duas sugestões separadas, de propósito — consumo real e
+             piso de segurança (mínimo + margem) são critérios
+             diferentes; combinar os dois automaticamente esconderia
+             qual dos dois está "puxando" o pedido pra cima. -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-[color:var(--bg-card)] border-2 border-[color:var(--yellow)] rounded-xl px-3 py-4 text-center">
+            <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--yellow)]">Sugestão (consumo)</p>
+            <p id="reposicao-sugestao-consumo" class="font-display text-2xl mt-1">—</p>
+            <p id="reposicao-sugestao-consumo-formula" class="font-mono text-[9px] text-[color:var(--ink-dim)] mt-1"></p>
+          </div>
+          <div class="bg-[color:var(--bg-card)] border-2 border-[color:var(--yellow)] rounded-xl px-3 py-4 text-center">
+            <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--yellow)]">Sugestão (mínimo+margem)</p>
+            <p id="reposicao-sugestao-minimo" class="font-display text-2xl mt-1">—</p>
+            <p id="reposicao-sugestao-minimo-formula" class="font-mono text-[9px] text-[color:var(--ink-dim)] mt-1"></p>
+          </div>
         </div>
       </div>
     </div>
@@ -1136,10 +1158,10 @@
   //   Resposta 200: {
   //     "codigo": "1552", "produto": "Nome",
   //     "saida_media_mensal": 106.0, "compra_media_mensal": 40.0,
-  //     "estoque_sistema": 20.0
+  //     "estoque_sistema": 20.0, "estoque_minimo": 50.0
   //   }
   //   (as médias são calculadas desde 01/01 do ano atual até hoje, não
-  //   o mês corrente isolado)
+  //   o mês corrente isolado; estoque_minimo é o valor cadastrado no WTTI)
   //
   // Fluxo proposital: depois de buscar o código, a tela PRIMEIRO pergunta
   // quanto o operador tem realmente em estoque (contagem física), antes
@@ -1163,12 +1185,16 @@
   const reposicaoSaidaMesEl = document.getElementById('reposicao-saida-mes');
   const reposicaoCompraMesEl = document.getElementById('reposicao-compra-mes');
   const reposicaoEstoqueSistemaEl = document.getElementById('reposicao-estoque-sistema');
+  const reposicaoEstoqueMinimoEl = document.getElementById('reposicao-estoque-minimo');
   const reposicaoFuro = document.getElementById('reposicao-furo');
   const reposicaoMeses = document.getElementById('reposicao-meses');
-  const reposicaoSugestaoEl = document.getElementById('reposicao-sugestao');
-  const reposicaoSugestaoFormula = document.getElementById('reposicao-sugestao-formula');
+  const reposicaoMargemMinimo = document.getElementById('reposicao-margem-minimo');
+  const reposicaoSugestaoConsumoEl = document.getElementById('reposicao-sugestao-consumo');
+  const reposicaoSugestaoConsumoFormula = document.getElementById('reposicao-sugestao-consumo-formula');
+  const reposicaoSugestaoMinimoEl = document.getElementById('reposicao-sugestao-minimo');
+  const reposicaoSugestaoMinimoFormula = document.getElementById('reposicao-sugestao-minimo-formula');
 
-  let reposicaoDados = null; // { codigo, produto, saida_media_mensal, compra_media_mensal, estoque_sistema }
+  let reposicaoDados = null; // { codigo, produto, saida_media_mensal, compra_media_mensal, estoque_sistema, estoque_minimo }
 
   function formatarNumero(n){
     return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
@@ -1257,6 +1283,7 @@
     reposicaoSaidaMesEl.textContent = formatarNumero(reposicaoDados.saida_media_mensal);
     reposicaoCompraMesEl.textContent = formatarNumero(reposicaoDados.compra_media_mensal);
     reposicaoEstoqueSistemaEl.textContent = formatarNumero(reposicaoDados.estoque_sistema);
+    reposicaoEstoqueMinimoEl.textContent = formatarNumero(reposicaoDados.estoque_minimo);
 
     const furo = reposicaoDados.estoque_sistema - estoqueReal;
     if (Math.abs(furo) < 0.01){
@@ -1271,19 +1298,25 @@
     }
     reposicaoFuro.classList.remove('hidden');
 
+    // Sugestão 1: baseada no consumo real (saída média × cobertura).
     const meses = parseFloat(reposicaoMeses.value) || 0;
-    const sugestao = (reposicaoDados.saida_media_mensal * meses) - estoqueReal;
+    const sugestaoConsumo = (reposicaoDados.saida_media_mensal * meses) - estoqueReal;
 
-    if (sugestao <= 0){
-      reposicaoSugestaoEl.textContent = "0";
-      reposicaoSugestaoEl.style.color = 'var(--green)';
-    } else {
-      reposicaoSugestaoEl.textContent = formatarNumero(sugestao);
-      reposicaoSugestaoEl.style.color = 'var(--yellow)';
-    }
+    reposicaoSugestaoConsumoEl.textContent = sugestaoConsumo <= 0 ? "0" : formatarNumero(sugestaoConsumo);
+    reposicaoSugestaoConsumoEl.style.color = sugestaoConsumo <= 0 ? 'var(--green)' : 'var(--yellow)';
+    reposicaoSugestaoConsumoFormula.textContent =
+      `${formatarNumero(reposicaoDados.saida_media_mensal)}/mês × ${formatarNumero(meses)} meses − ${formatarNumero(estoqueReal)} contado`;
 
-    reposicaoSugestaoFormula.textContent =
-      `${formatarNumero(reposicaoDados.saida_media_mensal)} (média/mês) × ${formatarNumero(meses)} meses − ${formatarNumero(estoqueReal)} contado`;
+    // Sugestão 2: piso de segurança — mantém uma margem acima do
+    // estoque mínimo cadastrado no WTTI, independente do consumo.
+    const margemPct = parseFloat(reposicaoMargemMinimo.value) || 0;
+    const minimoComMargem = reposicaoDados.estoque_minimo * (1 + margemPct / 100);
+    const sugestaoMinimo = minimoComMargem - estoqueReal;
+
+    reposicaoSugestaoMinimoEl.textContent = sugestaoMinimo <= 0 ? "0" : formatarNumero(sugestaoMinimo);
+    reposicaoSugestaoMinimoEl.style.color = sugestaoMinimo <= 0 ? 'var(--green)' : 'var(--yellow)';
+    reposicaoSugestaoMinimoFormula.textContent =
+      `${formatarNumero(reposicaoDados.estoque_minimo)} mín. × ${formatarNumero(1 + margemPct / 100)} (+${formatarNumero(margemPct)}%) − ${formatarNumero(estoqueReal)} contado`;
   }
 
   btnBuscarReposicao.addEventListener('click', buscarReposicao);
@@ -1307,6 +1340,7 @@
     if (!reposicaoDetalhes.classList.contains('hidden')) renderizarReposicao();
   });
   reposicaoMeses.addEventListener('input', renderizarReposicao);
+  reposicaoMargemMinimo.addEventListener('input', renderizarReposicao);
 
 })();
 </script>

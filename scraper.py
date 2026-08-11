@@ -379,12 +379,27 @@ class WttiScraper:
         else:
             medias = self._calcular_medias_mensais()
 
+        estoque_minimo = self._buscar_estoque_minimo(codigo_produto)
+
         return {
             "produto": descricao,
             "estoque": estoque,
+            "estoque_minimo": estoque_minimo,
             "saida_media_mensal": medias["saida_media_mensal"],
             "compra_media_mensal": medias["compra_media_mensal"],
         }
+
+    def _buscar_estoque_minimo(self, codigo_produto):
+        """Busca o Estoque Mínimo cadastrado do produto — mesma tela usada
+        pra buscar fotos (View/Cadastro/CadastroProduto.aspx?UID=<codigo>),
+        painel #pnlDetalhesProduto."""
+        url = f"{config.WTTI_BASE_URL}/View/Cadastro/CadastroProduto.aspx?UID={codigo_produto}"
+        self._driver.get(url)
+        try:
+            elemento = self._esperar_visivel(config.SEL_ESTOQUE_MINIMO)
+        except TimeoutException:
+            return 0.0
+        return self._texto_para_float(elemento.text)
 
     @retry_em_stale()
     def _procurar_linha_produto_com_paginacao(self, codigo_produto):

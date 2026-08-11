@@ -10,12 +10,14 @@ Expõe:
                                          (galeria da tela de Cadastro de
                                          Produtos), buscado sob demanda por
                                          item pra não deixar /api/notas lento.
-  GET /api/produtos/<codigo>/reposicao -> descrição, estoque atual, e
+  GET /api/produtos/<codigo>/reposicao -> descrição, estoque atual,
+                                         estoque mínimo cadastrado, e
                                          médias mensais de saída (vendas)
                                          e compra desde 01/01 do ano
                                          atual (Relatório Produto x
-                                         Saldo), pra sidebar de sugestão
-                                         de pedido.
+                                         Saldo + Cadastro de Produto),
+                                         pra sidebar de sugestão de
+                                         pedido.
   GET /api/health                    -> status simples
   POST /api/login                    -> força um novo login no WTTI (útil se
                                          a sessão expirar no meio do dia)
@@ -39,7 +41,8 @@ Contrato de resposta de /api/produtos/<codigo>/reposicao:
   "produto": "Nome do produto",
   "saida_media_mensal": 106.0,
   "compra_media_mensal": 40.0,
-  "estoque_sistema": 20.0
+  "estoque_sistema": 20.0,
+  "estoque_minimo": 50.0
 }
 (saida_media_mensal e compra_media_mensal são médias desde 01/01 do ano
 atual, não o mês corrente isolado. O cálculo de quantidade sugerida e a
@@ -118,6 +121,7 @@ def _buscar_reposicao_com_cache(codigo_produto):
         "saida_media_mensal": resultado["saida_media_mensal"],
         "compra_media_mensal": resultado["compra_media_mensal"],
         "estoque_sistema": resultado["estoque"],
+        "estoque_minimo": resultado["estoque_minimo"],
     }
     _cache_reposicao[codigo_produto] = (agora, dados)
     return dados

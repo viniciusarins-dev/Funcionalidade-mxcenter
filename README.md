@@ -158,7 +158,8 @@ dá pra digitar o código de um produto. O fluxo é proposital:
 1. Digita o código e busca — a API consulta o **Relatório Produto x
    Saldo** do WTTI desde 01/01 do ano atual até hoje (traz estoque em
    tempo real + histórico de saída/compra por mês/NF/cliente numa tela
-   só).
+   só) e, em seguida, o **Estoque Mínimo** cadastrado na tela de Cadastro
+   de Produto.
 2. Antes de mostrar qualquer número do sistema, a tela **pergunta**:
    "Quantos você tem realmente em estoque?" — o operador digita a
    contagem física, sem ver o número do sistema antes, pra não vender a
@@ -168,16 +169,25 @@ dá pra digitar o código de um produto. O fluxo é proposital:
      dividido pelo número do mês atual (ex: agosto = ÷8).
    - **Compra média/mês** — mesma conta, pras linhas `Tipo = Entradas`.
    - **Estoque no sistema** — pra comparar com o que foi contado.
+   - **Estoque mínimo** — valor cadastrado no WTTI, informativo.
    - **Furo** — diferença entre estoque do sistema e o contado, sinalizada
      em cores.
-   - **Meses de cobertura** (editável, padrão 2) e a **sugestão de
-     pedido**: `saída média/mês × meses de cobertura − estoque contado`.
+   - **Meses de cobertura** (editável, padrão 2) e **margem sobre o
+     mínimo** (editável, padrão 50%), alimentando **duas sugestões
+     mostradas separadamente** (de propósito — são critérios
+     diferentes, e combinar automaticamente esconderia qual dos dois
+     está pedindo mais):
+     - **Sugestão (consumo):** `saída média/mês × meses de cobertura − estoque contado`
+     - **Sugestão (mínimo+margem):** `estoque mínimo × (1 + margem%) − estoque contado`
 
 Os seletores do Relatório Produto x Saldo (`SEL_SALDO_*`) foram
 confirmados por inspeção do HTML real e validados de ponta a ponta com
 `testar_reposicao.py` — é um grid comum, sem a complicação de classes
 CSS dinâmicas que o Ranking de Produtos (tela usada antes, já
-substituída) tinha por usar o controle Microsoft ReportViewer. Veja
+substituída) tinha por usar o controle Microsoft ReportViewer. O
+Estoque Mínimo (`SEL_ESTOQUE_MINIMO`) veio da mesma tela já usada pra
+buscar fotos de produto (`CadastroProduto.aspx`), mas ainda só foi
+testado isoladamente com dados simulados, não contra o WTTI real. Veja
 `GUIA_SELETORES.md` (Passo 7) pros detalhes.
 
 ## 10. Limitações importantes

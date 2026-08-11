@@ -1,10 +1,12 @@
 # Guia — Encontrando os seletores certos do WTTI
 
-> **Status (2026-08-11):** tudo validado de ponta a ponta contra o WTTI
-> real — login, busca de nota (Passos 1-6) e a sidebar de reposição via
-> Relatório Produto x Saldo (Passo 7), incluindo o caso de códigos que
-> precisam de paginação. Este guia continua valendo como referência pra
-> quando o WTTI mudar de layout no futuro e algum seletor parar de bater.
+> **Status (2026-08-11):** login, busca de nota (Passos 1-6) e a sidebar
+> de reposição via Relatório Produto x Saldo (Passo 7) validados de
+> ponta a ponta contra o WTTI real, incluindo paginação. O Estoque
+> Mínimo (também Passo 7, lido de `CadastroProduto.aspx`) foi só testado
+> isoladamente com dados simulados — ainda não rodou contra o WTTI de
+> verdade. Este guia continua valendo como referência pra quando o WTTI
+> mudar de layout no futuro e algum seletor parar de bater.
 
 Siga esses passos na ordem. Cada um leva 2-5 minutos. Não precisa saber
 programar — é só inspecionar a página e copiar um texto.
@@ -239,6 +241,10 @@ URL: `https://mxcenter.wtti.app/View/Relatorio/RelatorioProdutoSaldo.aspx`
    (compras), e divide cada soma pelo número do mês atual (ex: agosto =
    8) pra chegar numa média mensal de cada um. `Reservas` não entra em
    nenhuma das duas.
+6. Depois disso, o scraper navega pra `View/Cadastro/CadastroProduto.aspx?UID=<codigo>`
+   (a mesma tela já usada pra buscar fotos de produto) e lê o **Estoque
+   Mínimo** cadastrado, no painel `#pnlDetalhesProduto` — usado como piso
+   de segurança na sidebar, com margem editável (ver seção 9 do README).
 
 ### Pegadinha da paginação do `#gdwProdutos` ✅ (corrigida em 2026-08-11)
 
@@ -276,6 +282,7 @@ COL_SALDO_ESTOQUE_SEM_RESERVA=4
 SEL_SALDO_GRID_RESULTADO=#gdwResultado
 COL_HISTORICO_TIPO=3
 COL_HISTORICO_QTD=6
+SEL_ESTOQUE_MINIMO=#lblEstoqueProdutoMin
 ```
 
 A lógica de soma por tipo foi testada com os dados reais que apareceram
