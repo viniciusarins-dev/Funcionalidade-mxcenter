@@ -1,11 +1,12 @@
 # Guia — Encontrando os seletores certos do WTTI
 
-> **Status (2026-08-11):** todos os fluxos abaixo já estão validados —
-> login, busca de nota (Passos 1-6) e a sidebar de reposição/saída do
-> mês (Passo 7, estoque validado end-to-end; ranking de produtos
-> validado por inspeção do HTML real, com export de Excel em vez de
-> leitura de tabela). Este guia continua valendo como referência pra
-> quando o WTTI mudar de layout no futuro e algum seletor parar de bater.
+> **Status (2026-08-11):** login e busca de nota (Passos 1-6) validados
+> de ponta a ponta. A sidebar de reposição (Passo 7) foi migrada pro
+> Relatório Produto x Saldo — seletores confirmados por inspeção do HTML
+> real, mas a execução completa (rodar `testar_reposicao.py` contra o
+> WTTI de verdade) ainda não aconteceu com esse fluxo novo. Este guia
+> continua valendo como referência pra quando o WTTI mudar de layout no
+> futuro e algum seletor parar de bater.
 
 Siga esses passos na ordem. Cada um leva 2-5 minutos. Não precisa saber
 programar — é só inspecionar a página e copiar um texto.
@@ -203,111 +204,73 @@ os valores default atuais).
 
 ---
 
-## Passo 7 — Seletores da sidebar de reposição (saída do mês + estoque)
+## Passo 7 — Seletores da sidebar de reposição (Relatório Produto x Saldo)
 
-### 7.1 — Relatório de Ranking de Produtos (saída do mês) ✅ (validado em 2026-08-11)
+> **Histórico:** as duas primeiras tentativas pra essa sidebar foram
+> descartadas: a tela de Manutenção de Estoque (dado desatualizado) e o
+> Ranking de Produtos (ReportViewer com classes CSS dinâmicas, exigia
+> exportar Excel). O **Relatório Produto x Saldo** resolve as duas coisas
+> numa tela só — estoque em tempo real e histórico de saída por
+> mês/NF/cliente — e é um grid HTML comum, sem a complicação do
+> ReportViewer.
 
-URL: `https://mxcenter.wtti.app/View/Relatorio/RelatorioRankingProdutos.aspx`
+URL: `https://mxcenter.wtti.app/View/Relatorio/RelatorioProdutoSaldo.aspx`
 
-Essa tela **não é um grid simples** como as outras — é o filtro de um
-relatório (Data Inicial/Data Final + outros filtros) que, ao clicar em
-"Pesquisar", renderiza o resultado usando o controle **Microsoft
-ReportViewer** (o mesmo usado em relatórios SSRS/RDLC). O HTML da tabela
-de resultado tem classes CSS geradas dinamicamente por sessão — não dá
-pra confiar num seletor CSS fixo pra ler linha por linha, ao contrário
-dos grids `gdwXxx` do resto do sistema.
+### Como funciona
 
-**Solução adotada:** em vez de ler a tabela na tela, o scraper preenche
-o período, clica em Pesquisar, e então usa o próprio botão de
-**exportar pra Excel** do ReportViewer (ícone de disquete no canto do
-relatório) — o arquivo `.xlsx` baixado é lido com a biblioteca
-`openpyxl`. Confirmado que é um `.xlsx` binário real (não HTML
-disfarçado de Excel, que é uma pegadinha comum em versões antigas desse
-controle) — inspecionado com Bloco de Notas, o arquivo começa com a
-assinatura ZIP (`[Content_Types].xml`, `xl/worksheets/sheet1.xml` etc.).
+1. Digita o código no campo **Produto** (`#txtCodProduto`) e sai do campo
+   (o campo só dispara a busca no evento `onchange`, que só acontece
+   quando perde o foco — por isso o scraper manda um Tab depois de
+   preencher, não basta digitar).
+2. Isso preenche o grid `#gdwProdutos` com os produtos cujo código bate
+   (pode vir mais de um parecido, ex: `571` e `1571` juntos — o scraper
+   sempre confere o texto **exato** da coluna Código, nunca pega a
+   primeira linha).
+3. Nesse mesmo grid já vem a coluna **"Estoque s/ Reservas"** — esse é o
+   estoque atual usado pela sidebar, direto dali, sem precisar de mais
+   nenhum clique.
+4. Clicar em **Selecionar** na linha certa carrega a tabela de histórico
+   `#gdwResultado` (Mês/Dia/NF/Tipo/Interessado/Saldo/Qtd/...) — o
+   scraper soma a coluna `Qtd` das linhas com `Tipo = Saídas` dentro do
+   bloco do mês atual.
 
-Seletores confirmados:
-```
-SEL_RANKING_DATA_INICIAL=#ctl00_ContentPlaceHolder1_relatorioApplet_ctl07_txtValor
-SEL_RANKING_DATA_FINAL=#ctl00_ContentPlaceHolder1_relatorioApplet_ctl08_txtValor
-SEL_RANKING_SUBMIT=#btnConsultar
-SEL_RANKING_EXPORT_BOTAO=#ctl00_ContentPlaceHolder1_relatorioApplet_reportView_ctl05_ctl04_ctl00_ButtonImg
-```
+### Pegadinha da coluna "Mês"
 
-O link "Excel" dentro do menu de exportação não tem `id` (é gerado em
-runtime pelo ReportViewer) — o scraper localiza ele pelo texto visível
-"Excel" (`By.LINK_TEXT`), confirmado no HTML real:
-```html
-<a onclick="$find('...reportView').exportReport('EXCELOPENXML');" ...>Excel</a>
-```
+A coluna Mês só vem preenchida na **primeira linha de cada grupo** —
+nas linhas seguintes do mesmo mês, vem em branco. O scraper guarda o
+último mês visto enquanto percorre as linhas (que vêm em ordem
+cronológica decrescente) e para assim que sai do bloco do mês atual —
+não precisa escanear a tabela inteira.
 
-O scraper acha as colunas certas procurando pelo **texto do cabeçalho**
-no Excel (`COL_RANKING_CODIGO_NOME`, `COL_RANKING_QTD_NOME`), não por
-índice fixo — o arquivo exportado tem várias linhas de letterhead/filtros
-antes da tabela de dados de verdade, então procurar pelo texto do
-cabeçalho é mais confiável do que contar linhas.
-
-**Pegadinha real que já aconteceu:** o cabeçalho na TELA aparece sem
-acento ("Cod Produto"), mas no Excel exportado é **"Cód Produto" COM
-acento**. Isso fazia a comparação de texto nunca bater — e, pior, sem
-erro nenhum na primeira versão do código (toda linha era tratada como
-"ainda não achei o cabeçalho", e o produto sempre voltava como
-`saída = 0`, indistinguível de "sem venda no período"). Corrigido em
-dois níveis: o valor certo (`COL_RANKING_CODIGO_NOME=Cód Produto`) já
-está no default, e agora `_ler_qtd_do_excel` levanta um erro explícito
-se o cabeçalho configurado não bater com nada no arquivo, em vez de
-devolver zero silenciosamente.
-
-**Validado de ponta a ponta em 2026-08-11** com `testar_reposicao.py`
-pra três produtos com venda em agosto/2026:
-```
-168  (LÂMINAS INTERNO DE 12MM) → 19
-1541 (LÂMINAS INTERNO DE 6MM)  → 242
-302  (LÂMINAS INTERNO DE 8MM)  → 30
-```
-
-**Se algum dia isso parar de funcionar de novo:** o motivo mais provável
-é o texto do cabeçalho ter mudado de novo, ou o `id` do ícone de
-exportar ter mudado — os dois são fáceis de reconferir inspecionando a
-tela e o Excel baixado.
-
-### 7.2 — Manutenção de Estoque por Filial ✅ (validado em 2026-08-11)
-
-URL: `https://mxcenter.wtti.app/View/Cadastro/ManutencaoEstoqueFilial.aspx`
-
-Seletores confirmados com `testar_reposicao.py 203` (produto "BATENTE
-16MM - SHOWA", estoque = 53):
+### Seletores confirmados (por inspeção do HTML real em 2026-08-11)
 
 ```
-SEL_ESTOQUE_BUSCA_INPUT=#txtCodProduto
-SEL_ESTOQUE_BUSCA_SUBMIT=#btnPesquisa
-SEL_ESTOQUE_TABELA=#gdwVendas
-SEL_ESTOQUE_LINHAS=#gdwVendas tbody tr
-COL_ESTOQUE_QTD=2
+SEL_SALDO_PRODUTO_INPUT=#txtCodProduto
+SEL_SALDO_GRID_PRODUTOS=#gdwProdutos
+COL_SALDO_CODIGO=0
+COL_SALDO_DESCRICAO=1
+COL_SALDO_ESTOQUE_SEM_RESERVA=4
+SEL_SALDO_GRID_RESULTADO=#gdwResultado
+COL_HISTORICO_MES=0
+COL_HISTORICO_TIPO=3
+COL_HISTORICO_QTD=6
 ```
 
-`COL_ESTOQUE_CODIGO` ficou no default (`0`) — não foi confirmado
-explicitamente qual coluna do grid `#gdwVendas` tem o código do produto.
-Se algum produto vier com estoque `0` errado (o código pode não estar
-batendo na coluna certa), esse é o primeiro lugar pra conferir.
+A lógica de soma por mês foi testada com os dados reais que apareceram
+na tela pro produto 571 (BATENTE 14MM - CRF250F): 6 linhas "Saídas" em
+Agosto/2026 (5+8+2+6+2+2 = 25) e 1 linha "Reservas" (corretamente
+ignorada) — bate certinho com o algoritmo implementado.
 
-### 7.3 — Testar
+### Testar
 
 ```powershell
-python testar_reposicao.py <codigo_de_um_produto_que_voce_sabe_a_saida_e_o_estoque>
+python testar_reposicao.py <codigo_de_um_produto_que_voce_sabe_o_estoque_e_a_saida>
 ```
 
-Compare os dois números impressos (`Saída do mês` e `Estoque no sistema`)
-com o que você vê manualmente nas telas do WTTI pra esse mesmo produto.
-Se baterem, os seletores estão certos. Se vierem `0` (ou errados), confira
-`debug_screenshots/` — o script salva screenshot em caso de erro — e
-ajusta os `SEL_RANKING_*`/`SEL_ESTOQUE_*` no `.env`.
-
-**Lembrete:** o estoque desse relatório é sabidamente desatualizado em
-relação à contagem física real (você já mencionou isso) — não é o
-scraper que está errado se o número bater com o que o *sistema* mostra
-mas não com o que tem na prateleira. É exatamente pra isso que a sidebar
-deixa digitar o estoque contado à mão, pra comparar.
+**Ainda não rodou contra o WTTI real** (só a lógica de soma foi testada
+isoladamente com dados simulados) — essa é a primeira execução de
+ponta a ponta. Se der erro, confira `debug_screenshots/` e os seletores
+acima contra o HTML real da tela.
 
 ---
 

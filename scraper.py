@@ -19,17 +19,14 @@ inspecionar a tela de consulta de nota com o DevTools do navegador.
 
 import os
 import time
-import shutil
-import tempfile
 import threading
 import logging
 import datetime
 from functools import wraps
 
-import openpyxl
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -42,6 +39,11 @@ from selenium.common.exceptions import (
 )
 
 import config
+
+MESES_PT = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
+    7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
+}
 
 logger = logging.getLogger("wtti_scraper")
 logging.basicConfig(level=logging.INFO)
@@ -102,14 +104,11 @@ class WttiScraper:
         self._driver = None
         self._logado = False
         self._lock = threading.RLock()
-        self._download_dir = None
 
     # -----------------------------------------------------------------
     # Ciclo de vida do driver
     # -----------------------------------------------------------------
     def _criar_driver(self):
-        self._download_dir = tempfile.mkdtemp(prefix="wtti_downloads_")
-
         options = Options()
         if config.HEADLESS:
             options.add_argument("--headless=new")
@@ -129,13 +128,6 @@ class WttiScraper:
             "profile.password_manager_enabled": False,
             "profile.password_manager_leak_detection": False,
             "profile.default_content_setting_values.notifications": 2,
-            # Exportação do Relatório Ranking de Produtos (saída do mês)
-            # baixa um .xlsx real — evita o diálogo "Salvar como" e manda
-            # direto pra essa pasta temporária, isolada por instância do driver.
-            "download.default_directory": self._download_dir,
-            "download.prompt_for_download": False,
-            "download.directory_upgrade": True,
-            "safebrowsing.enabled": True,
         })
         options.add_argument("--disable-notifications")
         options.add_argument(
@@ -144,17 +136,6 @@ class WttiScraper:
         driver = webdriver.Chrome(options=options)
         driver.implicitly_wait(config.IMPLICIT_WAIT_SECONDS)
         driver.set_page_load_timeout(config.EXPLICIT_WAIT_SECONDS * 2)
-
-        # Chrome headless bloqueia downloads por padrão por segurança,
-        # ignorando as prefs acima — precisa liberar explicitamente via CDP.
-        try:
-            driver.execute_cdp_cmd("Page.setDownloadBehavior", {
-                "behavior": "allow",
-                "downloadPath": self._download_dir,
-            })
-        except Exception as e:
-            logger.warning("Não consegui habilitar download via CDP (%s) — exportação de relatório pode falhar.", e)
-
         return driver
 
     def _garantir_driver(self):
@@ -172,15 +153,9 @@ class WttiScraper:
                 self._driver.quit()
             except Exception:
                 pass  # já pode estar morto mesmo
-        self._limpar_download_dir()
         self._driver = None
         self._logado = False
         self._garantir_driver()
-
-    def _limpar_download_dir(self):
-        if self._download_dir is not None:
-            shutil.rmtree(self._download_dir, ignore_errors=True)
-            self._download_dir = None
 
     def encerrar(self):
         with self._lock:
@@ -188,7 +163,6 @@ class WttiScraper:
                 self._driver.quit()
                 self._driver = None
                 self._logado = False
-            self._limpar_download_dir()
 
     # -----------------------------------------------------------------
     # Diagnóstico — screenshot + HTML no momento do erro
@@ -334,234 +308,131 @@ class WttiScraper:
         return [u for u in urls if u]
 
     # -----------------------------------------------------------------
-    # Reposição — estoque no sistema + saída do mês (sidebar de sugestão)
+    # Reposição — Relatório Produto x Saldo (sidebar de sugestão)
     # -----------------------------------------------------------------
-    def buscar_estoque_produto(self, codigo_produto):
-        """Consulta a tela de Manutenção de Estoque por Filial e devolve a
-        quantidade em estoque cadastrada no sistema pra esse código. Esse
-        número pode estar desatualizado em relação à contagem física real
-        — quem decide o que fazer com a diferença é a tela (sidebar), não
-        este método."""
+    def buscar_reposicao_produto(self, codigo_produto):
+        """Consulta única no Relatório Produto x Saldo: devolve descrição,
+        estoque atual (sem reservas) e total de saída no mês corrente pra
+        esse código. Essa tela substitui as duas usadas antes (Manutenção
+        de Estoque, que dava número desatualizado, e Ranking de Produtos,
+        que exigia exportar Excel por causa do ReportViewer) por uma
+        consulta só, mais confiável e com histórico por NF/cliente."""
         with self._lock:
             self._garantir_driver()
             if not self._logado:
                 self.login()
             try:
-                return self._buscar_estoque_produto_interno(codigo_produto)
+                return self._buscar_reposicao_produto_interno(codigo_produto)
             except WebDriverException as e:
-                logger.warning("Navegador travou buscando estoque (%s). Reiniciando e tentando 1x mais...", e)
-                self._salvar_evidencia_erro("navegador_travou_estoque")
+                logger.warning("Navegador travou buscando reposição (%s). Reiniciando e tentando 1x mais...", e)
+                self._salvar_evidencia_erro("navegador_travou_saldo")
                 self._reiniciar_driver()
                 self.login(forcar=True)
-                return self._buscar_estoque_produto_interno(codigo_produto)
+                return self._buscar_reposicao_produto_interno(codigo_produto)
 
-    def buscar_saida_mes_produto(self, codigo_produto):
-        """Consulta o Relatório de Ranking de Produtos e devolve a
-        quantidade que saiu no mês (conforme o período que a própria tela
-        carrega por padrão) pra esse código."""
-        with self._lock:
-            self._garantir_driver()
-            if not self._logado:
-                self.login()
-            try:
-                return self._buscar_saida_mes_produto_interno(codigo_produto)
-            except WebDriverException as e:
-                logger.warning("Navegador travou buscando saída do mês (%s). Reiniciando e tentando 1x mais...", e)
-                self._salvar_evidencia_erro("navegador_travou_ranking")
-                self._reiniciar_driver()
-                self.login(forcar=True)
-                return self._buscar_saida_mes_produto_interno(codigo_produto)
+    def _buscar_reposicao_produto_interno(self, codigo_produto):
+        self._driver.get(config.WTTI_SALDO_URL)
 
-    def _buscar_estoque_produto_interno(self, codigo_produto):
-        self._driver.get(config.WTTI_ESTOQUE_URL)
+        # O campo só dispara o postback no evento onchange (perde o foco),
+        # não a cada tecla digitada — precisa de um Tab depois de preencher.
+        self._preencher(config.SEL_SALDO_PRODUTO_INPUT, codigo_produto)
+        campo = self._driver.find_element(By.CSS_SELECTOR, config.SEL_SALDO_PRODUTO_INPUT)
+        campo.send_keys(Keys.TAB)
 
-        if config.SEL_ESTOQUE_BUSCA_INPUT:
-            self._preencher(config.SEL_ESTOQUE_BUSCA_INPUT, codigo_produto)
-            if config.SEL_ESTOQUE_BUSCA_SUBMIT:
-                self._clicar(config.SEL_ESTOQUE_BUSCA_SUBMIT)
-
-        return self._extrair_valor_de_grid(
-            tabela_sel=config.SEL_ESTOQUE_TABELA,
-            linhas_sel=config.SEL_ESTOQUE_LINHAS,
-            col_codigo=config.COL_ESTOQUE_CODIGO,
-            col_valor=config.COL_ESTOQUE_QTD,
-            codigo_produto=codigo_produto,
-            rotulo_erro="estoque",
-        )
-
-    def _buscar_saida_mes_produto_interno(self, codigo_produto):
-        """O Relatório de Ranking de Produtos usa o controle Microsoft
-        ReportViewer, cujo HTML da tabela renderizada tem classes CSS
-        geradas por sessão — não dá pra confiar em seletor fixo pra ler a
-        tabela na tela. Em vez disso: preenche o período (1º dia do mês
-        atual até hoje), exporta o relatório pra Excel (.xlsx real, não
-        HTML disfarçado — confirmado em 2026-08-11) e lê o arquivo
-        baixado com openpyxl."""
-        self._driver.get(config.WTTI_RANKING_URL)
-
-        hoje = datetime.date.today()
-        primeiro_dia_mes = hoje.replace(day=1)
-        self._preencher(config.SEL_RANKING_DATA_INICIAL, primeiro_dia_mes.strftime("%d/%m/%Y"))
-        self._preencher(config.SEL_RANKING_DATA_FINAL, hoje.strftime("%d/%m/%Y"))
-        self._clicar(config.SEL_RANKING_SUBMIT)
-
-        caminho_excel = self._exportar_ranking_excel()
-        return self._ler_qtd_do_excel(caminho_excel, codigo_produto)
-
-    def _exportar_ranking_excel(self):
-        # Limpa a pasta de downloads antes de exportar, pra não confundir
-        # um arquivo de uma exportação anterior com o novo.
-        for nome_arquivo in os.listdir(self._download_dir):
-            try:
-                os.remove(os.path.join(self._download_dir, nome_arquivo))
-            except OSError:
-                pass
-
-        self._clicar(config.SEL_RANKING_EXPORT_BOTAO)
-        # O menu que abre não tem id (é gerado pelo controle ReportViewer em
-        # runtime) — o texto visível "Excel" é o único ponto de referência
-        # estável, confirmado inspecionando o HTML real do menu.
-        link_excel = self._wait().until(EC.element_to_be_clickable((By.LINK_TEXT, "Excel")))
-        link_excel.click()
-
-        return self._esperar_download_completo(self._download_dir, ".xlsx")
-
-    def _esperar_download_completo(self, pasta, sufixo, timeout=None):
-        """Espera um arquivo novo com o sufixo dado aparecer na pasta de
-        downloads e ter o tamanho estável entre duas checagens seguidas
-        (sinal de que o Chrome terminou de escrever o arquivo)."""
-        timeout = timeout or config.EXPLICIT_WAIT_SECONDS
-        limite = time.time() + timeout
-        ultimo_tamanho = None
-        ultimo_caminho = None
-
-        while time.time() < limite:
-            candidatos = [
-                f for f in os.listdir(pasta)
-                if f.lower().endswith(sufixo) and ".crdownload" not in f.lower()
-            ]
-            if candidatos:
-                caminho = max(
-                    (os.path.join(pasta, f) for f in candidatos),
-                    key=os.path.getmtime,
-                )
-                tamanho = os.path.getsize(caminho)
-                if caminho == ultimo_caminho and tamanho == ultimo_tamanho and tamanho > 0:
-                    return caminho
-                ultimo_caminho, ultimo_tamanho = caminho, tamanho
-            time.sleep(0.3)
-
-        self._salvar_evidencia_erro("download_ranking_nao_apareceu")
-        raise ErroWtti(
-            f"O download do relatório de ranking não apareceu em {pasta} "
-            f"depois de {timeout}s."
-        )
-
-    def _ler_qtd_do_excel(self, caminho_arquivo, codigo_produto):
-        """Lê o .xlsx exportado do Relatório de Ranking de Produtos e
-        devolve a quantidade da linha cujo "Cod Produto" bate com
-        codigo_produto. Acha a linha de cabeçalho procurando pelo texto
-        configurado (não assume índice fixo de linha/coluna, porque o
-        relatório tem várias linhas de cabeçalho/filtro antes da tabela
-        de dados de verdade — ver print do relatório)."""
         try:
-            workbook = openpyxl.load_workbook(caminho_arquivo, read_only=True, data_only=True)
-            planilha = workbook.active
-
-            col_codigo = col_qtd = None
-            cabecalho_encontrado = False
-
-            for linha in planilha.iter_rows(values_only=True):
-                if not cabecalho_encontrado:
-                    for idx, valor in enumerate(linha):
-                        texto = str(valor).strip() if valor is not None else ""
-                        if texto == config.COL_RANKING_CODIGO_NOME:
-                            col_codigo = idx
-                        elif texto == config.COL_RANKING_QTD_NOME:
-                            col_qtd = idx
-                    if col_codigo is not None and col_qtd is not None:
-                        cabecalho_encontrado = True
-                    continue  # essa linha é cabeçalho ou lixo antes da tabela — nunca é dado
-
-                if len(linha) <= max(col_codigo, col_qtd):
-                    continue
-
-                if self._normalizar_codigo(linha[col_codigo]) != self._normalizar_codigo(codigo_produto):
-                    continue
-
-                valor_qtd = linha[col_qtd]
-                return float(valor_qtd) if valor_qtd is not None else 0.0
-
-            if not cabecalho_encontrado:
-                # Isso NÃO significa "produto sem saída" — significa que o
-                # texto do cabeçalho configurado não bate com nada no Excel
-                # exportado (relatório mudou, ou COL_RANKING_*_NOME está
-                # errado). Devolver 0.0 aqui esconderia esse problema atrás
-                # de um número que parece legítimo.
-                raise ErroWtti(
-                    f'Não encontrei as colunas "{config.COL_RANKING_CODIGO_NOME}" / '
-                    f'"{config.COL_RANKING_QTD_NOME}" no Excel exportado do ranking. '
-                    f"O texto do cabeçalho pode ter mudado — confira "
-                    f"COL_RANKING_CODIGO_NOME / COL_RANKING_QTD_NOME no .env contra "
-                    f"o arquivo baixado."
-                )
-
-            # Cabeçalho encontrado, produto não apareceu no período: sem
-            # saída no período — isso sim é um resultado válido, não um erro.
-            return 0.0
-
-        finally:
-            try:
-                os.remove(caminho_arquivo)
-            except OSError:
-                pass
-
-    @staticmethod
-    def _normalizar_codigo(valor):
-        """Códigos puramente numéricos (ex: 168) podem vir do Excel como
-        float (168.0) via openpyxl, enquanto códigos alfanuméricos (ex:
-        1380T) vêm como texto — normaliza os dois lados da comparação pro
-        mesmo formato de string."""
-        texto = str(valor).strip() if valor is not None else ""
-        if texto.endswith(".0"):
-            try:
-                return str(int(float(texto)))
-            except ValueError:
-                pass
-        return texto
-
-    def _extrair_valor_de_grid(self, tabela_sel, linhas_sel, col_codigo, col_valor, codigo_produto, rotulo_erro):
-        """Escaneia as linhas de um grid procurando a linha cujo texto na
-        coluna col_codigo bate com codigo_produto, e devolve o número da
-        coluna col_valor dessa linha. Se o produto não tiver nenhuma saída
-        no período (não aparece no ranking) ou não existir no grid de
-        estoque, considera 0 — não é necessariamente um erro."""
-        try:
-            self._esperar_visivel(tabela_sel)
+            self._esperar_visivel(config.SEL_SALDO_GRID_PRODUTOS)
         except TimeoutException:
-            self._salvar_evidencia_erro(f"grid_{rotulo_erro}_nao_carregou_{codigo_produto}")
+            self._salvar_evidencia_erro(f"saldo_grid_produtos_nao_carregou_{codigo_produto}")
             raise ProdutoNaoEncontrado(
-                f"O grid de {rotulo_erro} não carregou pra consultar o produto {codigo_produto}."
+                f"Código {codigo_produto} não retornou nenhum resultado no Relatório Produto x Saldo."
             )
 
-        linhas = self._driver.find_elements(By.CSS_SELECTOR, linhas_sel)
+        linha_alvo = None
+        linhas = self._driver.find_elements(By.CSS_SELECTOR, f"{config.SEL_SALDO_GRID_PRODUTOS} tbody tr")
         for linha in linhas:
             colunas = linha.find_elements(By.TAG_NAME, "td")
-            if len(colunas) <= max(col_codigo, col_valor):
+            if len(colunas) <= config.COL_SALDO_CODIGO:
                 continue
-            if colunas[col_codigo].text.strip() != str(codigo_produto).strip():
-                continue
-            texto_valor = colunas[col_valor].text.strip()
-            try:
-                return float(texto_valor.replace(".", "").replace(",", "."))
-            except ValueError:
-                logger.warning("Valor não numérico na coluna de %s: %r", rotulo_erro, texto_valor)
-                return 0.0
+            if colunas[config.COL_SALDO_CODIGO].text.strip() == str(codigo_produto).strip():
+                linha_alvo = linha
+                break
 
-        # Produto não apareceu no grid: trata como zero (sem saída no
-        # período, ou sem registro de estoque), não como erro — quem decide
-        # se isso é normal ou um "furo" é o operador, vendo a tela.
-        return 0.0
+        if linha_alvo is None:
+            self._salvar_evidencia_erro(f"saldo_codigo_nao_encontrado_{codigo_produto}")
+            # Códigos parecidos (ex: 571 e 1571) podem aparecer juntos no
+            # grid — por isso o match é sempre por texto EXATO da coluna
+            # Código, nunca "contém" ou o primeiro resultado.
+            raise ProdutoNaoEncontrado(
+                f"Código {codigo_produto} não encontrado entre os resultados do "
+                f"Relatório Produto x Saldo (pode ter vindo só códigos parecidos)."
+            )
+
+        colunas = linha_alvo.find_elements(By.TAG_NAME, "td")
+        descricao = colunas[config.COL_SALDO_DESCRICAO].text.strip()
+        estoque = self._texto_para_float(colunas[config.COL_SALDO_ESTOQUE_SEM_RESERVA].text)
+
+        botao_selecionar = linha_alvo.find_element(By.CSS_SELECTOR, "input[value='Selecionar']")
+        botao_selecionar.click()
+
+        try:
+            self._esperar_visivel(config.SEL_SALDO_GRID_RESULTADO)
+        except TimeoutException:
+            # Produto sem nenhuma movimentação registrada — estoque ainda é
+            # válido, só não tem histórico pra somar saída do mês.
+            saida_mes = 0.0
+        else:
+            saida_mes = self._somar_saidas_do_mes()
+
+        return {"produto": descricao, "estoque": estoque, "saida_mes": saida_mes}
+
+    def _somar_saidas_do_mes(self):
+        """Percorre a tabela de histórico (#gdwResultado) somando a coluna
+        Qtd de todas as linhas com Tipo="Saídas" dentro do bloco do mês
+        atual. A coluna "Mês" só vem preenchida na primeira linha de cada
+        grupo de mês (fica em branco nas linhas seguintes do mesmo mês) —
+        por isso guarda o último mês visto enquanto percorre. As linhas
+        vêm em ordem cronológica decrescente, então dá pra parar assim que
+        sair do bloco do mês alvo."""
+        hoje = datetime.date.today()
+        mes_alvo = f"{MESES_PT[hoje.month]} de {hoje.year}"
+
+        linhas = self._driver.find_elements(By.CSS_SELECTOR, f"{config.SEL_SALDO_GRID_RESULTADO} tbody tr")
+        mes_linha_atual = None
+        dentro_do_mes_alvo = False
+        total = 0.0
+
+        for linha in linhas:
+            colunas = linha.find_elements(By.TAG_NAME, "td")
+            if len(colunas) <= max(config.COL_HISTORICO_MES, config.COL_HISTORICO_TIPO, config.COL_HISTORICO_QTD):
+                continue
+
+            texto_mes = colunas[config.COL_HISTORICO_MES].text.strip()
+            if texto_mes:
+                if dentro_do_mes_alvo and texto_mes != mes_alvo:
+                    break  # saiu do bloco do mês alvo, não precisa olhar o resto
+                mes_linha_atual = texto_mes
+                dentro_do_mes_alvo = (mes_linha_atual == mes_alvo)
+
+            if mes_linha_atual != mes_alvo:
+                continue
+
+            tipo = colunas[config.COL_HISTORICO_TIPO].text.strip()
+            if tipo != "Saídas":
+                continue  # "Reservas"/"Entradas" não contam como saída
+
+            total += self._texto_para_float(colunas[config.COL_HISTORICO_QTD].text)
+
+        return total
+
+    @staticmethod
+    def _texto_para_float(texto):
+        texto = (texto or "").strip()
+        if not texto:
+            return 0.0
+        try:
+            return float(texto.replace(".", "").replace(",", "."))
+        except ValueError:
+            return 0.0
 
     def _selecionar_nota_por_tipo(self, codigo, tipo_desejado):
         """
@@ -711,11 +582,6 @@ def buscar_imagens_produto(codigo_produto):
     return scraper.buscar_imagens_produto(codigo_produto)
 
 
-def buscar_estoque_produto(codigo_produto):
+def buscar_reposicao_produto(codigo_produto):
     """Função de conveniência — é isso que o app.py importa e chama."""
-    return scraper.buscar_estoque_produto(codigo_produto)
-
-
-def buscar_saida_mes_produto(codigo_produto):
-    """Função de conveniência — é isso que o app.py importa e chama."""
-    return scraper.buscar_saida_mes_produto(codigo_produto)
+    return scraper.buscar_reposicao_produto(codigo_produto)

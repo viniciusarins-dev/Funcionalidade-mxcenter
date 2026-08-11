@@ -358,35 +358,49 @@
 
     <div id="reposicao-resultado" class="hidden flex flex-col gap-4">
 
-      <div class="grid grid-cols-2 gap-3">
-        <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
-          <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Saiu no mês</p>
-          <p id="reposicao-saida-mes" class="font-mono text-2xl mt-1">—</p>
+      <p id="reposicao-nome-produto" class="font-stencil text-sm text-[color:var(--ink-dim)]"></p>
+
+      <!-- Pergunta obrigatória, respondida ANTES de qualquer outro dado
+           aparecer — pra pegar a contagem física real, sem o operador
+           só copiar o número que o sistema mostra. -->
+      <div id="reposicao-pergunta-estoque" class="bg-[color:var(--bg-card)] border-2 border-[color:var(--yellow)] rounded-xl px-4 py-4">
+        <label for="reposicao-estoque-real" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--yellow)] block mb-2">Quantos você tem realmente em estoque?</label>
+        <div class="flex gap-2">
+          <input id="reposicao-estoque-real" type="number" inputmode="decimal" min="0" step="1" placeholder="Digite a contagem física"
+            class="scanner-input flex-1 min-w-0 bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)] placeholder:text-[#4a5160]">
+          <button id="btn-confirmar-estoque"
+            class="shrink-0 font-stencil uppercase tracking-wider bg-[color:var(--yellow)] text-[#14171d] font-bold rounded-xl px-4 hover:brightness-110 active:scale-95 transition">
+            Confirmar
+          </button>
         </div>
-        <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
-          <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Estoque no sistema</p>
-          <p id="reposicao-estoque-sistema" class="font-mono text-2xl mt-1">—</p>
+        <p id="reposicao-pergunta-erro" class="hidden text-[color:var(--red)] font-semibold mt-2 text-sm"></p>
+      </div>
+
+      <div id="reposicao-detalhes" class="hidden flex flex-col gap-4">
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
+            <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Saiu no mês</p>
+            <p id="reposicao-saida-mes" class="font-mono text-2xl mt-1">—</p>
+          </div>
+          <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
+            <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Estoque no sistema</p>
+            <p id="reposicao-estoque-sistema" class="font-mono text-2xl mt-1">—</p>
+          </div>
         </div>
-      </div>
-      <p class="text-[10px] text-[color:var(--ink-dim)] -mt-2">⚠ O estoque do sistema pode estar desatualizado em relação à contagem física.</p>
+        <p id="reposicao-furo" class="hidden text-xs font-mono -mt-2"></p>
 
-      <div>
-        <label for="reposicao-estoque-real" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Estoque contado (opcional)</label>
-        <input id="reposicao-estoque-real" type="number" inputmode="decimal" min="0" step="1" placeholder="Digite se contou fisicamente"
-          class="w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)] placeholder:text-[#4a5160]">
-        <p id="reposicao-furo" class="hidden text-xs font-mono mt-2"></p>
-      </div>
+        <div>
+          <label for="reposicao-meses" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Meses de cobertura</label>
+          <input id="reposicao-meses" type="number" inputmode="decimal" min="0.5" step="0.5" value="2"
+            class="w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)]">
+        </div>
 
-      <div>
-        <label for="reposicao-meses" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Meses de cobertura</label>
-        <input id="reposicao-meses" type="number" inputmode="decimal" min="0.5" step="0.5" value="2"
-          class="w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)]">
-      </div>
-
-      <div class="bg-[color:var(--bg-card)] border-2 border-[color:var(--yellow)] rounded-xl px-4 py-4 text-center">
-        <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--yellow)]">Sugestão de pedido</p>
-        <p id="reposicao-sugestao" class="font-display text-3xl mt-1">—</p>
-        <p id="reposicao-sugestao-formula" class="font-mono text-[10px] text-[color:var(--ink-dim)] mt-1"></p>
+        <div class="bg-[color:var(--bg-card)] border-2 border-[color:var(--yellow)] rounded-xl px-4 py-4 text-center">
+          <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--yellow)]">Sugestão de pedido</p>
+          <p id="reposicao-sugestao" class="font-display text-3xl mt-1">—</p>
+          <p id="reposicao-sugestao-formula" class="font-mono text-[10px] text-[color:var(--ink-dim)] mt-1"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -1114,11 +1128,12 @@
   // ---------------------------------------------------------------
   // Contrato esperado do endpoint:
   //   GET {API_BASE_URL}/produtos/{codigo}/reposicao
-  //   Resposta 200: { "codigo": "1552", "saida_mes": 106.0, "estoque_sistema": 20.0 }
-  // O cálculo da quantidade sugerida e a comparação com o estoque contado
-  // à mão (pra achar "furos" entre sistema e contagem física) acontecem
-  // aqui no front-end, porque dependem de um valor que só existe na tela
-  // (o operador digitando o que contou).
+  //   Resposta 200: { "codigo": "1552", "produto": "Nome", "saida_mes": 106.0, "estoque_sistema": 20.0 }
+  //
+  // Fluxo proposital: depois de buscar o código, a tela PRIMEIRO pergunta
+  // quanto o operador tem realmente em estoque (contagem física), antes
+  // de revelar saída do mês, estoque do sistema e a sugestão — assim a
+  // resposta não fica enviesada pelo número que o próprio sistema mostra.
   const btnAbrirReposicao = document.getElementById('btn-abrir-reposicao');
   const btnFecharReposicao = document.getElementById('btn-fechar-reposicao');
   const reposicaoOverlay = document.getElementById('reposicao-overlay');
@@ -1128,15 +1143,20 @@
   const reposicaoErro = document.getElementById('reposicao-erro');
   const reposicaoLoading = document.getElementById('reposicao-loading');
   const reposicaoResultado = document.getElementById('reposicao-resultado');
+  const reposicaoNomeProduto = document.getElementById('reposicao-nome-produto');
+  const reposicaoPerguntaEstoque = document.getElementById('reposicao-pergunta-estoque');
+  const reposicaoEstoqueReal = document.getElementById('reposicao-estoque-real');
+  const btnConfirmarEstoque = document.getElementById('btn-confirmar-estoque');
+  const reposicaoPerguntaErro = document.getElementById('reposicao-pergunta-erro');
+  const reposicaoDetalhes = document.getElementById('reposicao-detalhes');
   const reposicaoSaidaMesEl = document.getElementById('reposicao-saida-mes');
   const reposicaoEstoqueSistemaEl = document.getElementById('reposicao-estoque-sistema');
-  const reposicaoEstoqueReal = document.getElementById('reposicao-estoque-real');
   const reposicaoFuro = document.getElementById('reposicao-furo');
   const reposicaoMeses = document.getElementById('reposicao-meses');
   const reposicaoSugestaoEl = document.getElementById('reposicao-sugestao');
   const reposicaoSugestaoFormula = document.getElementById('reposicao-sugestao-formula');
 
-  let reposicaoDados = null; // { codigo, saida_mes, estoque_sistema }
+  let reposicaoDados = null; // { codigo, produto, saida_mes, estoque_sistema }
 
   function formatarNumero(n){
     return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
@@ -1169,6 +1189,7 @@
     }
 
     reposicaoResultado.classList.add('hidden');
+    reposicaoDetalhes.classList.add('hidden');
     reposicaoLoading.classList.remove('hidden');
     btnBuscarReposicao.disabled = true;
 
@@ -1184,9 +1205,11 @@
       }
 
       reposicaoDados = await resp.json();
+      reposicaoNomeProduto.textContent = reposicaoDados.produto ? `Produto: ${reposicaoDados.produto}` : '';
       reposicaoEstoqueReal.value = '';
-      renderizarReposicao();
+      reposicaoPerguntaErro.classList.add('hidden');
       reposicaoResultado.classList.remove('hidden');
+      setTimeout(() => reposicaoEstoqueReal.focus(), 50);
 
     } catch (e){
       console.error('Erro ao buscar reposição:', e);
@@ -1198,36 +1221,45 @@
     }
   }
 
+  function confirmarEstoqueContado(){
+    const texto = reposicaoEstoqueReal.value.trim();
+    const valor = parseFloat(texto);
+
+    if (texto === '' || isNaN(valor) || valor < 0){
+      reposicaoPerguntaErro.textContent = "Digite quantos você tem realmente em estoque (0 ou mais).";
+      reposicaoPerguntaErro.classList.remove('hidden');
+      return;
+    }
+
+    reposicaoPerguntaErro.classList.add('hidden');
+    reposicaoDetalhes.classList.remove('hidden');
+    renderizarReposicao();
+  }
+
   function renderizarReposicao(){
     if (!reposicaoDados) return;
+
+    const estoqueReal = parseFloat(reposicaoEstoqueReal.value);
+    if (isNaN(estoqueReal)) return; // ainda não confirmou a pergunta
 
     reposicaoSaidaMesEl.textContent = formatarNumero(reposicaoDados.saida_mes);
     reposicaoEstoqueSistemaEl.textContent = formatarNumero(reposicaoDados.estoque_sistema);
 
-    const estoqueRealTexto = reposicaoEstoqueReal.value.trim();
-    const temEstoqueReal = estoqueRealTexto !== '' && !isNaN(parseFloat(estoqueRealTexto));
-    const estoqueReal = temEstoqueReal ? parseFloat(estoqueRealTexto) : null;
-
-    if (temEstoqueReal){
-      const furo = reposicaoDados.estoque_sistema - estoqueReal;
-      if (Math.abs(furo) < 0.01){
-        reposicaoFuro.textContent = "✓ Bate com o sistema, sem furo.";
-        reposicaoFuro.style.color = 'var(--green)';
-      } else if (furo > 0){
-        reposicaoFuro.textContent = `⚠ Furo de ${formatarNumero(furo)} unidade(s) — sistema mostra mais do que foi contado.`;
-        reposicaoFuro.style.color = 'var(--red)';
-      } else {
-        reposicaoFuro.textContent = `Contagem tem ${formatarNumero(-furo)} unidade(s) a mais do que o sistema.`;
-        reposicaoFuro.style.color = 'var(--yellow)';
-      }
-      reposicaoFuro.classList.remove('hidden');
+    const furo = reposicaoDados.estoque_sistema - estoqueReal;
+    if (Math.abs(furo) < 0.01){
+      reposicaoFuro.textContent = "✓ Bate com o sistema, sem furo.";
+      reposicaoFuro.style.color = 'var(--green)';
+    } else if (furo > 0){
+      reposicaoFuro.textContent = `⚠ Furo de ${formatarNumero(furo)} unidade(s) — sistema mostra mais do que foi contado.`;
+      reposicaoFuro.style.color = 'var(--red)';
     } else {
-      reposicaoFuro.classList.add('hidden');
+      reposicaoFuro.textContent = `Contagem tem ${formatarNumero(-furo)} unidade(s) a mais do que o sistema.`;
+      reposicaoFuro.style.color = 'var(--yellow)';
     }
+    reposicaoFuro.classList.remove('hidden');
 
-    const estoqueUsado = temEstoqueReal ? estoqueReal : reposicaoDados.estoque_sistema;
     const meses = parseFloat(reposicaoMeses.value) || 0;
-    const sugestao = (reposicaoDados.saida_mes * meses) - estoqueUsado;
+    const sugestao = (reposicaoDados.saida_mes * meses) - estoqueReal;
 
     if (sugestao <= 0){
       reposicaoSugestaoEl.textContent = "0";
@@ -1238,8 +1270,7 @@
     }
 
     reposicaoSugestaoFormula.textContent =
-      `${formatarNumero(reposicaoDados.saida_mes)} × ${formatarNumero(meses)} meses − ${formatarNumero(estoqueUsado)} em estoque` +
-      (temEstoqueReal ? ' (contado)' : ' (sistema)');
+      `${formatarNumero(reposicaoDados.saida_mes)} × ${formatarNumero(meses)} meses − ${formatarNumero(estoqueReal)} contado`;
   }
 
   btnBuscarReposicao.addEventListener('click', buscarReposicao);
@@ -1249,7 +1280,19 @@
       buscarReposicao();
     }
   });
-  reposicaoEstoqueReal.addEventListener('input', renderizarReposicao);
+
+  btnConfirmarEstoque.addEventListener('click', confirmarEstoqueContado);
+  reposicaoEstoqueReal.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter'){
+      e.preventDefault();
+      confirmarEstoqueContado();
+    }
+  });
+  // Depois de confirmado, ainda dá pra corrigir a contagem digitada sem
+  // precisar clicar em "Confirmar" de novo — recalcula ao vivo.
+  reposicaoEstoqueReal.addEventListener('input', () => {
+    if (!reposicaoDetalhes.classList.contains('hidden')) renderizarReposicao();
+  });
   reposicaoMeses.addEventListener('input', renderizarReposicao);
 
 })();

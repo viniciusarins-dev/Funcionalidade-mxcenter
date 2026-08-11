@@ -10,11 +10,9 @@ Expõe:
                                          (galeria da tela de Cadastro de
                                          Produtos), buscado sob demanda por
                                          item pra não deixar /api/notas lento.
-  GET /api/produtos/<codigo>/reposicao -> saída do mês (Relatório de Ranking
-                                         de Produtos) + estoque cadastrado
-                                         no sistema (Manutenção de Estoque
-                                         por Filial), pra sidebar de
-                                         sugestão de pedido.
+  GET /api/produtos/<codigo>/reposicao -> descrição, estoque atual e saída
+                                         do mês (Relatório Produto x Saldo),
+                                         pra sidebar de sugestão de pedido.
   GET /api/health                    -> status simples
   POST /api/login                    -> força um novo login no WTTI (útil se
                                          a sessão expirar no meio do dia)
@@ -33,9 +31,9 @@ Contrato de resposta de /api/produtos/<codigo>/imagens:
 { "codigo": "1552", "imagens": ["https://mxcenter.wtti.app/Site/000182.jpg"] }
 
 Contrato de resposta de /api/produtos/<codigo>/reposicao:
-{ "codigo": "1552", "saida_mes": 106.0, "estoque_sistema": 20.0 }
+{ "codigo": "1552", "produto": "Nome do produto", "saida_mes": 106.0, "estoque_sistema": 20.0 }
 (o cálculo de quantidade sugerida e a comparação com o estoque contado à
-mão ficam por conta do front-end — a API só devolve os dois números crus)
+mão ficam por conta do front-end — a API só devolve os números crus)
 """
 
 import time
@@ -48,8 +46,7 @@ from scraper import (
     scraper,
     buscar_nota,
     buscar_imagens_produto,
-    buscar_estoque_produto,
-    buscar_saida_mes_produto,
+    buscar_reposicao_produto,
     NotaNaoEncontrada,
     ProdutoNaoEncontrado,
     ErroWtti,
@@ -103,10 +100,12 @@ def _buscar_reposicao_com_cache(codigo_produto):
             logger.info("Cache hit para reposição do produto %s", codigo_produto)
             return dados
 
+    resultado = buscar_reposicao_produto(codigo_produto)
     dados = {
         "codigo": codigo_produto,
-        "saida_mes": buscar_saida_mes_produto(codigo_produto),
-        "estoque_sistema": buscar_estoque_produto(codigo_produto),
+        "produto": resultado["produto"],
+        "saida_mes": resultado["saida_mes"],
+        "estoque_sistema": resultado["estoque"],
     }
     _cache_reposicao[codigo_produto] = (agora, dados)
     return dados

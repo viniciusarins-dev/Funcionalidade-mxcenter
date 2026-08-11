@@ -69,45 +69,31 @@ COL_QTD = int(_env("COL_QTD", "2"))
 # div.galleryItem com o atributo data-src apontando pro arquivo.
 SEL_GALERIA_ITEM = _env("SEL_GALERIA_ITEM", ".galeriaImagens .galleryItem")
 
-# --- Relatório de Ranking de Produtos (saída/vendas do mês) — validado
-# em 2026-08-11. Tela: View/Relatorio/RelatorioRankingProdutos.aspx.
-# Usa o controle Microsoft ReportViewer — o HTML da tabela renderizada
-# tem classes CSS geradas por sessão, não confiável pra seletor fixo. Em
-# vez de ler a tela, o scraper preenche Data Inicial/Final, exporta o
-# relatório pra Excel (.xlsx real, confirmado — não é HTML disfarçado) e
-# lê o arquivo baixado com openpyxl (ver _buscar_saida_mes_produto_interno
-# em scraper.py).
-WTTI_RANKING_URL = _env("WTTI_RANKING_URL", f"{WTTI_BASE_URL}/View/Relatorio/RelatorioRankingProdutos.aspx")
-SEL_RANKING_DATA_INICIAL = _env("SEL_RANKING_DATA_INICIAL", "#ctl00_ContentPlaceHolder1_relatorioApplet_ctl07_txtValor")
-SEL_RANKING_DATA_FINAL = _env("SEL_RANKING_DATA_FINAL", "#ctl00_ContentPlaceHolder1_relatorioApplet_ctl08_txtValor")
-SEL_RANKING_SUBMIT = _env("SEL_RANKING_SUBMIT", "#btnConsultar")
-# Ícone que abre o menu de exportação (Excel/PDF/Word) do ReportViewer.
-# O link "Excel" dentro do menu não tem id (gerado em runtime) — o
-# scraper localiza ele pelo texto visível, não por seletor CSS.
-SEL_RANKING_EXPORT_BOTAO = _env(
-    "SEL_RANKING_EXPORT_BOTAO",
-    "#ctl00_ContentPlaceHolder1_relatorioApplet_reportView_ctl05_ctl04_ctl00_ButtonImg",
-)
-# Texto exato do cabeçalho das colunas no Excel exportado (não índice —
-# mais robusto a reordenação de colunas no relatório). Validado em
-# 2026-08-11: é "Cód Produto" COM acento no arquivo real, apesar de
-# aparecer sem acento ("Cod Produto") na tela — atenção se for reajustar.
-COL_RANKING_CODIGO_NOME = _env("COL_RANKING_CODIGO_NOME", "Cód Produto")
-COL_RANKING_QTD_NOME = _env("COL_RANKING_QTD_NOME", "Qtd.")
-
-# --- Tela de Manutenção de Estoque por Filial (validado em 2026-08-11
-# com testar_reposicao.py, produto 203 = "BATENTE 16MM - SHOWA", estoque
-# = 53) -------------------------------------------------------------
-# O número que essa tela mostra pode estar desatualizado em relação à
-# contagem física real — por isso a sidebar de reposição também deixa
-# digitar o estoque contado à mão pra comparar com o valor do sistema.
-WTTI_ESTOQUE_URL = _env("WTTI_ESTOQUE_URL", f"{WTTI_BASE_URL}/View/Cadastro/ManutencaoEstoqueFilial.aspx")
-SEL_ESTOQUE_BUSCA_INPUT = _env("SEL_ESTOQUE_BUSCA_INPUT", "#txtCodProduto")
-SEL_ESTOQUE_BUSCA_SUBMIT = _env("SEL_ESTOQUE_BUSCA_SUBMIT", "#btnPesquisa")
-SEL_ESTOQUE_TABELA = _env("SEL_ESTOQUE_TABELA", "#gdwVendas")
-SEL_ESTOQUE_LINHAS = _env("SEL_ESTOQUE_LINHAS", "#gdwVendas tbody tr")
-COL_ESTOQUE_CODIGO = int(_env("COL_ESTOQUE_CODIGO", "0"))  # AJUSTAR se o furo não bater — não confirmado explicitamente
-COL_ESTOQUE_QTD = int(_env("COL_ESTOQUE_QTD", "2"))
+# --- Relatório Produto x Saldo (estoque atual + saída do mês, com
+# histórico por NF/cliente) — validado em 2026-08-11 (código 571,
+# BATENTE 14MM - CRF250F). Tela: View/Relatorio/RelatorioProdutoSaldo.aspx.
+# Substitui as telas usadas antes (Manutenção de Estoque, que dava número
+# desatualizado, e Ranking de Produtos, que exigia exportar Excel por
+# causa do ReportViewer) por uma única consulta HTML normal (grid comum,
+# sem classes CSS dinâmicas — mais simples e mais confiável).
+WTTI_SALDO_URL = _env("WTTI_SALDO_URL", f"{WTTI_BASE_URL}/View/Relatorio/RelatorioProdutoSaldo.aspx")
+# Campo "Produto" — digitar o código e sair do campo (Tab) dispara o
+# postback que preenche o grid de resultado abaixo.
+SEL_SALDO_PRODUTO_INPUT = _env("SEL_SALDO_PRODUTO_INPUT", "#txtCodProduto")
+# Grid de resultado da busca por código (#gdwProdutos): pode listar mais
+# de um produto parecido (ex: 571 e 1571) — o match é sempre por texto
+# EXATO da coluna Código, nunca o primeiro resultado.
+SEL_SALDO_GRID_PRODUTOS = _env("SEL_SALDO_GRID_PRODUTOS", "#gdwProdutos")
+COL_SALDO_CODIGO = int(_env("COL_SALDO_CODIGO", "0"))
+COL_SALDO_DESCRICAO = int(_env("COL_SALDO_DESCRICAO", "1"))
+COL_SALDO_ESTOQUE_SEM_RESERVA = int(_env("COL_SALDO_ESTOQUE_SEM_RESERVA", "4"))
+# Tabela de histórico (#gdwResultado), carregada depois de clicar
+# "Selecionar" na linha do produto certo. A coluna "Mês" só vem
+# preenchida na primeira linha de cada grupo de mês (ver scraper.py).
+SEL_SALDO_GRID_RESULTADO = _env("SEL_SALDO_GRID_RESULTADO", "#gdwResultado")
+COL_HISTORICO_MES = int(_env("COL_HISTORICO_MES", "0"))
+COL_HISTORICO_TIPO = int(_env("COL_HISTORICO_TIPO", "3"))
+COL_HISTORICO_QTD = int(_env("COL_HISTORICO_QTD", "6"))
 
 # --- API ---------------------------------------------------------------
 API_KEY = _env("API_KEY", "")  # se vazio, autenticação por chave fica desabilitada

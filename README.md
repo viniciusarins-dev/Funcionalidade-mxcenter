@@ -119,16 +119,14 @@ hospedagem:
 - `GET /api/produtos/<codigo>/imagens` — lista de URLs de imagens do produto
   (galeria da tela de Cadastro de Produtos). Retorna
   `{ "codigo": "1552", "imagens": ["https://mxcenter.wtti.app/Site/000182.jpg"] }`.
-- `GET /api/produtos/<codigo>/reposicao` — saída do mês (Relatório de Ranking
-  de Produtos) + estoque cadastrado no sistema (Manutenção de Estoque por
-  Filial), usado pela sidebar de sugestão de pedido da tela. Retorna:
+- `GET /api/produtos/<codigo>/reposicao` — descrição, estoque atual e saída
+  do mês (Relatório Produto x Saldo), usado pela sidebar de sugestão de
+  pedido da tela. Retorna:
   ```json
-  { "codigo": "1552", "saida_mes": 106.0, "estoque_sistema": 20.0 }
+  { "codigo": "1552", "produto": "Nome do produto", "saida_mes": 106.0, "estoque_sistema": 20.0 }
   ```
   O cálculo da quantidade sugerida (e a comparação com o estoque contado à
-  mão, pra achar "furos") acontece no front-end, não aqui — veja a seção 11.
-  **Atenção:** os seletores dessa rota ainda não foram validados contra o
-  HTML real do WTTI (ver `GUIA_SELETORES.md`, Passo 7).
+  mão, pra achar "furos") acontece no front-end, não aqui — veja a seção 9.
 - `POST /api/login` — força um novo login no WTTI (útil se a sessão expirar
   no meio do dia).
 
@@ -148,28 +146,30 @@ Se ativar `API_KEY` no `.env`, edite o `fetch()` da tela pra enviar o header
 ## 9. Sidebar de sugestão de reposição
 
 Botão "📦 Reposição" no canto superior direito da tela abre um painel onde
-dá pra digitar o código de um produto e ver:
+dá pra digitar o código de um produto. O fluxo é proposital:
 
-- **Saída no mês** — quanto desse produto saiu no período, puxado do
-  Relatório de Ranking de Produtos.
-- **Estoque no sistema** — quantidade cadastrada na tela de Manutenção de
-  Estoque por Filial. Esse número é sabidamente impreciso em relação à
-  contagem física real.
-- **Estoque contado** (campo opcional, digitado manualmente) — permite
-  comparar com o valor do sistema e sinalizar "furos" (diferença entre o
-  que o sistema acha que tem e o que foi contado de verdade).
-- **Meses de cobertura** (editável, padrão 2) — usado na fórmula da
-  sugestão: `saída do mês × meses de cobertura − estoque` (usando o
-  estoque contado, se preenchido; senão o do sistema).
+1. Digita o código e busca — a API consulta o **Relatório Produto x
+   Saldo** do WTTI (que traz estoque em tempo real + histórico de saída
+   por mês/NF/cliente numa tela só).
+2. Antes de mostrar qualquer número do sistema, a tela **pergunta**:
+   "Quantos você tem realmente em estoque?" — o operador digita a
+   contagem física, sem ver o número do sistema antes, pra não vender a
+   resposta.
+3. Só depois de confirmar é que aparecem:
+   - **Saiu no mês** — soma das saídas (`Tipo = Saídas`) do mês atual no
+     histórico do produto.
+   - **Estoque no sistema** — pra comparar com o que foi contado.
+   - **Furo** — diferença entre os dois, sinalizada em cores.
+   - **Meses de cobertura** (editável, padrão 2) e a **sugestão de
+     pedido**: `saída do mês × meses de cobertura − estoque contado`.
 
-Estoque (`SEL_ESTOQUE_*`) e saída do mês (`SEL_RANKING_*`) já foram
-validados de ponta a ponta com `testar_reposicao.py`. A saída do mês vem
-de um relatório baseado no controle Microsoft ReportViewer — o scraper
-não lê a tabela na tela (o HTML dela tem classes CSS geradas por
-sessão), e sim exporta o relatório pra Excel e lê o arquivo baixado com
-`openpyxl` — veja `GUIA_SELETORES.md` (Passo 7.1) pros detalhes,
-incluindo uma pegadinha real de acentuação no cabeçalho ("Cód Produto"
-no Excel vs "Cod Produto" na tela) que já mordeu esse fluxo uma vez.
+Os seletores do Relatório Produto x Saldo (`SEL_SALDO_*`) foram
+confirmados por inspeção do HTML real — é um grid comum, sem a
+complicação de classes CSS dinâmicas que o Ranking de Produtos (tela
+usada antes, já substituída) tinha por usar o controle Microsoft
+ReportViewer. Veja `GUIA_SELETORES.md` (Passo 7) pros detalhes; a
+execução completa contra o WTTI real ainda precisa ser validada com
+`testar_reposicao.py`.
 
 ## 10. Limitações importantes
 

@@ -1,13 +1,11 @@
 """
 Teste ISOLADO da sugestão de reposição — assume que o login já está OK
-(testado com testar_login.py) e valida os seletores das duas telas novas:
+(testado com testar_login.py) e valida os seletores do Relatório Produto
+x Saldo (estoque atual + saída do mês do produto).
 
-  - Relatório de Ranking de Produtos (saída do mês)
-  - Manutenção de Estoque por Filial (estoque cadastrado no sistema)
-
-Esses dois ainda NÃO foram inspecionados no HTML real do WTTI — os
-seletores em config.py/.env são só um palpite razoável (ver GUIA_SELETORES.md,
-Passo 7). É bem provável que precisem de ajuste na primeira rodada.
+Seletores confirmados por inspeção do HTML real em 2026-08-11 (ver
+GUIA_SELETORES.md, Passo 7) — mas essa é a primeira execução de ponta a
+ponta desse fluxo contra o WTTI real.
 
 Dica: deixe HEADLESS=false no .env pra ver o Chrome abrindo e identificar
 exatamente onde a busca desvia do esperado.
@@ -34,28 +32,24 @@ if len(sys.argv) < 2:
 
 codigo = sys.argv[1].strip()
 
-print(f"WTTI_RANKING_URL: {config.WTTI_RANKING_URL}")
-print(f"WTTI_ESTOQUE_URL: {config.WTTI_ESTOQUE_URL}")
+print(f"WTTI_SALDO_URL: {config.WTTI_SALDO_URL}")
 print(f"HEADLESS: {config.HEADLESS}")
 print(f"Buscando código: {codigo}")
 print("-" * 50)
 
 try:
-    print("\n[1/2] Consultando saída do mês (Ranking de Produtos)...")
-    saida_mes = scraper.buscar_saida_mes_produto(codigo)
-    print(f"      Saída do mês: {saida_mes}")
-
-    print("\n[2/2] Consultando estoque no sistema (Manutenção de Estoque)...")
-    estoque = scraper.buscar_estoque_produto(codigo)
-    print(f"      Estoque no sistema: {estoque}")
+    resultado = scraper.buscar_reposicao_produto(codigo)
 
     print("\n✅ CONSULTA FUNCIONOU!")
-    print(f"Saída do mês: {saida_mes} | Estoque no sistema: {estoque}")
+    print(f"Produto: {resultado['produto']}")
+    print(f"Estoque no sistema (s/ reservas): {resultado['estoque']}")
+    print(f"Saída no mês atual: {resultado['saida_mes']}")
     print(
-        "\nSe os dois números batem com o que você vê manualmente no WTTI, os "
-        "seletores estão corretos. Se vieram 0 e você esperava outro valor, "
-        "confira debug_screenshots/ e ajuste os seletores SEL_RANKING_* / "
-        "SEL_ESTOQUE_* (veja GUIA_SELETORES.md, Passo 7)."
+        "\nSe os números batem com o que você vê manualmente no WTTI, os "
+        "seletores estão corretos. Se vier estoque errado, confira "
+        "COL_SALDO_CODIGO/COL_SALDO_ESTOQUE_SEM_RESERVA; se a saída do mês "
+        "vier errada, confira COL_HISTORICO_MES/TIPO/QTD (veja "
+        "GUIA_SELETORES.md, Passo 7)."
     )
 
 except ProdutoNaoEncontrado as e:
