@@ -22,7 +22,7 @@ def _env(key, default=None, required=False):
 # --- Sistema WTTI (caminho ativo — Selenium) ---------------------------
 WTTI_BASE_URL = _env("WTTI_BASE_URL", "https://mxcenter.wtti.app")
 WTTI_LOGIN_URL = _env("WTTI_LOGIN_URL", f"{WTTI_BASE_URL}/Login.aspx")
-WTTI_SEARCH_URL = _env("WTTI_SEARCH_URL", f"{WTTI_BASE_URL}/ConsultaNota.aspx")  # AJUSTAR
+WTTI_SEARCH_URL = _env("WTTI_SEARCH_URL", f"{WTTI_BASE_URL}/View/Cadastro/Notas.aspx")
 WTTI_USER = _env("WTTI_USER", required=True)
 WTTI_PASS = _env("WTTI_PASS", required=True)
 
@@ -31,11 +31,11 @@ HEADLESS = _env("HEADLESS", "true").lower() == "true"
 IMPLICIT_WAIT_SECONDS = int(_env("IMPLICIT_WAIT_SECONDS", "0"))  # manter 0, usar waits explícitos
 EXPLICIT_WAIT_SECONDS = int(_env("EXPLICIT_WAIT_SECONDS", "15"))
 
-# --- Seletores da tela de LOGIN (AJUSTAR conforme o HTML real) --------
+# --- Seletores da tela de LOGIN (validados em 2026-08-11 com testar_login.py) --------
 SEL_LOGIN_USERNAME = _env("SEL_LOGIN_USERNAME", "#txtUsuario")
 SEL_LOGIN_PASSWORD = _env("SEL_LOGIN_PASSWORD", "#txtSenha")
-SEL_LOGIN_SUBMIT = _env("SEL_LOGIN_SUBMIT", "#btnEntrar")
-SEL_LOGIN_SUCESSO = _env("SEL_LOGIN_SUCESSO", "#menuPrincipal")  # elemento que só existe pós-login
+SEL_LOGIN_SUBMIT = _env("SEL_LOGIN_SUBMIT", "#btnAcessar")
+SEL_LOGIN_SUCESSO = _env("SEL_LOGIN_SUCESSO", "#lblTelefone")  # elemento que só existe pós-login
 
 # --- Seletores da tela de CONSULTA DE NOTA (AJUSTAR) -------------------
 SEL_BUSCA_INPUT = _env("SEL_BUSCA_INPUT", "#ctl00_ContentPlaceHolder1_pesquisaApplet_ctl03_txtValor")

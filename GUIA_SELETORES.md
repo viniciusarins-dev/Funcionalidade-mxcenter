@@ -1,5 +1,13 @@
 # Guia — Encontrando os seletores certos do WTTI
 
+> **Status (2026-08-11): todos os seletores abaixo já estão validados de
+> ponta a ponta** — login (`testar_login.py`) e busca de nota
+> (`testar_busca.py 3944`) rodaram com sucesso usando os valores que já
+> vêm como default em `config.py`/`.env.example`. Este guia continua
+> valendo como referência pra quando o WTTI mudar de layout no futuro e
+> algum seletor parar de bater — nesse caso, siga os passos abaixo de novo
+> pra achar o novo `id`.
+
 Siga esses passos na ordem. Cada um leva 2-5 minutos. Não precisa saber
 programar — é só inspecionar a página e copiar um texto.
 
@@ -114,10 +122,10 @@ aparece uma tag `<iframe ...>` envolvendo tudo.
 Preencha aqui (ou direto no `.env`) conforme for achando:
 
 ```
-SEL_LOGIN_USERNAME=
-SEL_LOGIN_PASSWORD=
-SEL_LOGIN_SUBMIT=
-SEL_LOGIN_SUCESSO=
+SEL_LOGIN_USERNAME=           # já preenchido: #txtUsuario
+SEL_LOGIN_PASSWORD=           # já preenchido: #txtSenha
+SEL_LOGIN_SUBMIT=             # já preenchido: #btnAcessar
+SEL_LOGIN_SUCESSO=            # já preenchido: #lblTelefone
 
 SEL_BUSCA_INPUT=              # já preenchido: #ctl00_ContentPlaceHolder1_pesquisaApplet_ctl03_txtValor
 SEL_BUSCA_SUBMIT=             # já preenchido: #btnConsultar
@@ -175,25 +183,24 @@ número da NF ficam em campos `<input readonly>` (`#txtRazaoSocial` e
 `value` desses campos, e não o texto visível — um `<input>` sempre
 retorna texto vazio no Selenium, mesmo com conteúdo preenchido.
 
-Todos os seletores da tela de consulta já estão preenchidos. Só falta
-confirmar os da tela de LOGIN (Passo 2 e 3 acima) e testar tudo com
-`python testar_login.py`.
+Todos os seletores, tanto da tela de LOGIN quanto da tela de CONSULTA,
+já estão confirmados (ver nota de status no topo deste arquivo).
 
 ---
 
 ## Passo 6 — Testar de novo
 
-Depois de preencher o `.env` com os valores reais (pelo menos os 4 de
-LOGIN pra começar), no terminal (com o `venv` ativado, na pasta certa):
+Depois de preencher o `.env` com os valores reais, no terminal (com o
+`venv` ativado, na pasta certa):
 
 ```powershell
 python testar_login.py
+python testar_busca.py <numero_da_nota>
 ```
 
-Se dessa vez aparecer `✅ LOGIN FUNCIONOU!`, os seletores de login estão
-certos — só falta ajustar os da tela de busca de nota, que testamos
-depois com um script parecido pra busca (`testar_busca.py`, que eu
-preparo quando você chegar nessa etapa).
+Se aparecer `✅ LOGIN FUNCIONOU!` e depois `✅ BUSCA FUNCIONOU!`, os
+seletores estão certos (é exatamente o que aconteceu em 2026-08-11 com
+os valores default atuais).
 
 Se continuar dando `❌`, me manda:
 1. O novo screenshot de `debug_screenshots\`.
