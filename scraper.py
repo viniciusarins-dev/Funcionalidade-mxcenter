@@ -398,8 +398,23 @@ class WttiScraper:
         try:
             elemento = self._esperar_visivel(config.SEL_ESTOQUE_MINIMO)
         except TimeoutException:
+            self._salvar_evidencia_erro(f"estoque_minimo_nao_encontrado_{codigo_produto}")
+            logger.warning(
+                "Não encontrei %s em CadastroProduto.aspx pro produto %s — "
+                "estoque mínimo ficou 0.0. Confira SEL_ESTOQUE_MINIMO no .env "
+                "contra o screenshot salvo em debug_screenshots/.",
+                config.SEL_ESTOQUE_MINIMO, codigo_produto,
+            )
             return 0.0
-        return self._texto_para_float(elemento.text)
+
+        texto = elemento.text
+        valor = self._texto_para_float(texto)
+        if valor == 0.0 and texto.strip() not in ("", "0", "0,00", "0.00"):
+            logger.warning(
+                "Texto de estoque mínimo não parseou como número esperado "
+                "pro produto %s: %r (ficou 0.0)", codigo_produto, texto,
+            )
+        return valor
 
     @retry_em_stale()
     def _procurar_linha_produto_com_paginacao(self, codigo_produto):
