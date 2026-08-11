@@ -89,8 +89,10 @@ SEL_RANKING_EXPORT_BOTAO = _env(
     "#ctl00_ContentPlaceHolder1_relatorioApplet_reportView_ctl05_ctl04_ctl00_ButtonImg",
 )
 # Texto exato do cabeçalho das colunas no Excel exportado (não índice —
-# mais robusto a reordenação de colunas no relatório).
-COL_RANKING_CODIGO_NOME = _env("COL_RANKING_CODIGO_NOME", "Cod Produto")
+# mais robusto a reordenação de colunas no relatório). Validado em
+# 2026-08-11: é "Cód Produto" COM acento no arquivo real, apesar de
+# aparecer sem acento ("Cod Produto") na tela — atenção se for reajustar.
+COL_RANKING_CODIGO_NOME = _env("COL_RANKING_CODIGO_NOME", "Cód Produto")
 COL_RANKING_QTD_NOME = _env("COL_RANKING_QTD_NOME", "Qtd.")
 
 # --- Tela de Manutenção de Estoque por Filial (validado em 2026-08-11

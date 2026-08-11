@@ -162,14 +162,14 @@ dá pra digitar o código de um produto e ver:
   sugestão: `saída do mês × meses de cobertura − estoque` (usando o
   estoque contado, se preenchido; senão o do sistema).
 
-A tela de estoque (`SEL_ESTOQUE_*`) já foi validada de ponta a ponta com
-`testar_reposicao.py`. A saída do mês vem de um relatório baseado no
-controle Microsoft ReportViewer — o scraper não lê a tabela na tela (o
-HTML dela tem classes CSS geradas por sessão), e sim exporta o relatório
-pra Excel e lê o arquivo baixado com `openpyxl`; os seletores foram
-confirmados por inspeção do HTML real, mas o fluxo de download ainda não
-rodou de ponta a ponta — veja `GUIA_SELETORES.md` (Passo 7.1) pros
-detalhes e rode `testar_reposicao.py` pra confirmar.
+Estoque (`SEL_ESTOQUE_*`) e saída do mês (`SEL_RANKING_*`) já foram
+validados de ponta a ponta com `testar_reposicao.py`. A saída do mês vem
+de um relatório baseado no controle Microsoft ReportViewer — o scraper
+não lê a tabela na tela (o HTML dela tem classes CSS geradas por
+sessão), e sim exporta o relatório pra Excel e lê o arquivo baixado com
+`openpyxl` — veja `GUIA_SELETORES.md` (Passo 7.1) pros detalhes,
+incluindo uma pegadinha real de acentuação no cabeçalho ("Cód Produto"
+no Excel vs "Cod Produto" na tela) que já mordeu esse fluxo uma vez.
 
 ## 10. Limitações importantes
 

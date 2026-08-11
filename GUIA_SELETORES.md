@@ -242,15 +242,34 @@ runtime pelo ReportViewer) — o scraper localiza ele pelo texto visível
 ```
 
 O scraper acha as colunas certas procurando pelo **texto do cabeçalho**
-no Excel (`COL_RANKING_CODIGO_NOME=Cod Produto`, `COL_RANKING_QTD_NOME=Qtd.`),
-não por índice fixo — o arquivo exportado tem várias linhas de
-letterhead/filtros antes da tabela de dados de verdade, então procurar
-pelo texto do cabeçalho é mais confiável do que contar linhas.
+no Excel (`COL_RANKING_CODIGO_NOME`, `COL_RANKING_QTD_NOME`), não por
+índice fixo — o arquivo exportado tem várias linhas de letterhead/filtros
+antes da tabela de dados de verdade, então procurar pelo texto do
+cabeçalho é mais confiável do que contar linhas.
 
-**Se algum dia isso parar de funcionar:** o motivo mais provável é o
-texto do cabeçalho ter mudado (ex: "Cod Produto" virou "Código") ou o
-`id` do ícone de exportar ter mudado — os dois são fáceis de reconferir
-inspecionando a tela de novo.
+**Pegadinha real que já aconteceu:** o cabeçalho na TELA aparece sem
+acento ("Cod Produto"), mas no Excel exportado é **"Cód Produto" COM
+acento**. Isso fazia a comparação de texto nunca bater — e, pior, sem
+erro nenhum na primeira versão do código (toda linha era tratada como
+"ainda não achei o cabeçalho", e o produto sempre voltava como
+`saída = 0`, indistinguível de "sem venda no período"). Corrigido em
+dois níveis: o valor certo (`COL_RANKING_CODIGO_NOME=Cód Produto`) já
+está no default, e agora `_ler_qtd_do_excel` levanta um erro explícito
+se o cabeçalho configurado não bater com nada no arquivo, em vez de
+devolver zero silenciosamente.
+
+**Validado de ponta a ponta em 2026-08-11** com `testar_reposicao.py`
+pra três produtos com venda em agosto/2026:
+```
+168  (LÂMINAS INTERNO DE 12MM) → 19
+1541 (LÂMINAS INTERNO DE 6MM)  → 242
+302  (LÂMINAS INTERNO DE 8MM)  → 30
+```
+
+**Se algum dia isso parar de funcionar de novo:** o motivo mais provável
+é o texto do cabeçalho ter mudado de novo, ou o `id` do ícone de
+exportar ter mudado — os dois são fáceis de reconferir inspecionando a
+tela e o Excel baixado.
 
 ### 7.2 — Manutenção de Estoque por Filial ✅ (validado em 2026-08-11)
 
