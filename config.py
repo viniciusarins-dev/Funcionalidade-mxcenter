@@ -69,6 +69,33 @@ COL_QTD = int(_env("COL_QTD", "2"))
 # div.galleryItem com o atributo data-src apontando pro arquivo.
 SEL_GALERIA_ITEM = _env("SEL_GALERIA_ITEM", ".galeriaImagens .galleryItem")
 
+# --- Relatório de Ranking de Produtos (saída/vendas do mês) — AJUSTAR ---
+# Tela: View/Relatorio/RelatorioRankingProdutos.aspx. Ainda não inspecionada
+# no HTML real — ver GUIA_SELETORES.md (Passo 7) pra descobrir os valores
+# certos com testar_reposicao.py.
+WTTI_RANKING_URL = _env("WTTI_RANKING_URL", f"{WTTI_BASE_URL}/View/Relatorio/RelatorioRankingProdutos.aspx")
+# Campo de mês/período do filtro do relatório. Deixe vazio se a tela já
+# carrega o mês atual sozinha, sem precisar preencher nada.
+SEL_RANKING_MES_INPUT = _env("SEL_RANKING_MES_INPUT", "")
+SEL_RANKING_SUBMIT = _env("SEL_RANKING_SUBMIT", "")  # deixe vazio se não houver botão de aplicar filtro
+SEL_RANKING_TABELA = _env("SEL_RANKING_TABELA", "#gdwRanking")
+SEL_RANKING_LINHAS = _env("SEL_RANKING_LINHAS", "#gdwRanking tbody tr")
+COL_RANKING_CODIGO = int(_env("COL_RANKING_CODIGO", "0"))
+COL_RANKING_QTD = int(_env("COL_RANKING_QTD", "1"))
+
+# --- Tela de Manutenção de Estoque por Filial — AJUSTAR -----------------
+# Tela: View/Cadastro/ManutencaoEstoqueFilial.aspx. O número que essa tela
+# mostra pode estar desatualizado em relação à contagem física real — por
+# isso a sidebar de reposição também deixa digitar o estoque contado à mão
+# pra comparar com o valor do sistema.
+WTTI_ESTOQUE_URL = _env("WTTI_ESTOQUE_URL", f"{WTTI_BASE_URL}/View/Cadastro/ManutencaoEstoqueFilial.aspx")
+SEL_ESTOQUE_BUSCA_INPUT = _env("SEL_ESTOQUE_BUSCA_INPUT", "")
+SEL_ESTOQUE_BUSCA_SUBMIT = _env("SEL_ESTOQUE_BUSCA_SUBMIT", "")
+SEL_ESTOQUE_TABELA = _env("SEL_ESTOQUE_TABELA", "#gdwEstoque")
+SEL_ESTOQUE_LINHAS = _env("SEL_ESTOQUE_LINHAS", "#gdwEstoque tbody tr")
+COL_ESTOQUE_CODIGO = int(_env("COL_ESTOQUE_CODIGO", "0"))
+COL_ESTOQUE_QTD = int(_env("COL_ESTOQUE_QTD", "1"))
+
 # --- API ---------------------------------------------------------------
 API_KEY = _env("API_KEY", "")  # se vazio, autenticação por chave fica desabilitada
 CORS_ORIGINS = _env("CORS_ORIGINS", "*")  # em produção, restrinja ao domínio do front-end

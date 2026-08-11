@@ -1,12 +1,13 @@
 # Guia — Encontrando os seletores certos do WTTI
 
-> **Status (2026-08-11): todos os seletores abaixo já estão validados de
-> ponta a ponta** — login (`testar_login.py`) e busca de nota
-> (`testar_busca.py 3944`) rodaram com sucesso usando os valores que já
-> vêm como default em `config.py`/`.env.example`. Este guia continua
-> valendo como referência pra quando o WTTI mudar de layout no futuro e
-> algum seletor parar de bater — nesse caso, siga os passos abaixo de novo
-> pra achar o novo `id`.
+> **Status (2026-08-11):** login e busca de nota (Passos 1-6 abaixo) já
+> estão validados de ponta a ponta — `testar_login.py` e
+> `testar_busca.py 3944` rodaram com sucesso usando os valores que já vêm
+> como default em `config.py`/`.env.example`. **Pendente:** os seletores
+> da sidebar de reposição (saída do mês + estoque, Passo 7) ainda não
+> foram inspecionados no HTML real — são só um palpite. Este guia
+> continua valendo como referência pra quando o WTTI mudar de layout no
+> futuro e algum seletor parar de bater.
 
 Siga esses passos na ordem. Cada um leva 2-5 minutos. Não precisa saber
 programar — é só inspecionar a página e copiar um texto.
@@ -202,7 +203,75 @@ Se aparecer `✅ LOGIN FUNCIONOU!` e depois `✅ BUSCA FUNCIONOU!`, os
 seletores estão certos (é exatamente o que aconteceu em 2026-08-11 com
 os valores default atuais).
 
-Se continuar dando `❌`, me manda:
+---
+
+## Passo 7 — Seletores da sidebar de reposição (saída do mês + estoque)
+
+Diferente dos passos anteriores, essas duas telas **ainda não foram
+inspecionadas** — os valores em `.env.example`/`config.py` são só um
+palpite razoável baseado no padrão do resto do sistema (grids `gdwXxx`).
+É bem provável que precisem de ajuste na primeira rodada.
+
+### 7.1 — Relatório de Ranking de Produtos (saída do mês)
+
+URL: `https://mxcenter.wtti.app/View/Relatorio/RelatorioRankingProdutos.aspx`
+
+1. Acesse a tela logado e repare: ela já carrega o mês atual sozinha, ou
+   precisa selecionar um mês/período antes de mostrar a lista?
+   - Se **já carrega sozinha**: deixe `SEL_RANKING_MES_INPUT` e
+     `SEL_RANKING_SUBMIT` vazios no `.env` (o scraper pula essa etapa).
+   - Se **precisa selecionar um período**: inspecione (botão direito →
+     Inspecionar) o campo de mês/data e o botão de aplicar filtro, anote
+     os `id`s em `SEL_RANKING_MES_INPUT` e `SEL_RANKING_SUBMIT`. Me avisa
+     também qual é o formato esperado (ex: `08/2026`, `2026-08`, um
+     dropdown de mês + outro de ano) — o `scraper.py` precisa saber pra
+     preencher certo (hoje ele tenta preencher com string vazia, que
+     provavelmente vai precisar virar código específico depois que você
+     descrever o campo).
+2. Inspecione a **tabela de resultados** (a lista de produtos com
+   quantidade vendida). Anote o `id` dela em `SEL_RANKING_TABELA`, e o
+   seletor de linha (geralmente `#idDaTabela tbody tr`) em
+   `SEL_RANKING_LINHAS`.
+3. Conte as colunas da tabela da esquerda pra direita (começando do 0) e
+   anote em `.env`:
+   - `COL_RANKING_CODIGO` — coluna com o código do produto.
+   - `COL_RANKING_QTD` — coluna com a quantidade vendida/saída no período.
+
+### 7.2 — Manutenção de Estoque por Filial
+
+URL: `https://mxcenter.wtti.app/View/Cadastro/ManutencaoEstoqueFilial.aspx`
+
+1. Veja se essa tela tem um campo de busca por código de produto:
+   - Se **sim**: inspecione o campo e o botão de buscar, anote os `id`s
+     em `SEL_ESTOQUE_BUSCA_INPUT` e `SEL_ESTOQUE_BUSCA_SUBMIT`.
+   - Se **não** (a tela já lista todos os produtos de uma vez, sem
+     filtro): deixe os dois vazios no `.env` — o scraper vai escanear
+     todas as linhas do grid procurando o código, igual faz no ranking.
+2. Inspecione a tabela/grid de estoque, anote `id` em `SEL_ESTOQUE_TABELA`
+   e o seletor de linha em `SEL_ESTOQUE_LINHAS`.
+3. Conte as colunas e anote `COL_ESTOQUE_CODIGO` e `COL_ESTOQUE_QTD`.
+
+### 7.3 — Testar
+
+```powershell
+python testar_reposicao.py <codigo_de_um_produto_que_voce_sabe_a_saida_e_o_estoque>
+```
+
+Compare os dois números impressos (`Saída do mês` e `Estoque no sistema`)
+com o que você vê manualmente nas telas do WTTI pra esse mesmo produto.
+Se baterem, os seletores estão certos. Se vierem `0` (ou errados), confira
+`debug_screenshots/` — o script salva screenshot em caso de erro — e
+ajusta os `SEL_RANKING_*`/`SEL_ESTOQUE_*` no `.env`.
+
+**Lembrete:** o estoque desse relatório é sabidamente desatualizado em
+relação à contagem física real (você já mencionou isso) — não é o
+scraper que está errado se o número bater com o que o *sistema* mostra
+mas não com o que tem na prateleira. É exatamente pra isso que a sidebar
+deixa digitar o estoque contado à mão, pra comparar.
+
+---
+
+## Se continuar dando `❌` nos testes de login/busca (Passos 1-6), me manda:
 1. O novo screenshot de `debug_screenshots\`.
 2. O `id` que você achou pra `SEL_LOGIN_SUCESSO` — às vezes o elemento
    certo demora um pouco a aparecer na tela (precisa de mais tempo de

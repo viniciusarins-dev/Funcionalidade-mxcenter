@@ -119,6 +119,16 @@ hospedagem:
 - `GET /api/produtos/<codigo>/imagens` — lista de URLs de imagens do produto
   (galeria da tela de Cadastro de Produtos). Retorna
   `{ "codigo": "1552", "imagens": ["https://mxcenter.wtti.app/Site/000182.jpg"] }`.
+- `GET /api/produtos/<codigo>/reposicao` — saída do mês (Relatório de Ranking
+  de Produtos) + estoque cadastrado no sistema (Manutenção de Estoque por
+  Filial), usado pela sidebar de sugestão de pedido da tela. Retorna:
+  ```json
+  { "codigo": "1552", "saida_mes": 106.0, "estoque_sistema": 20.0 }
+  ```
+  O cálculo da quantidade sugerida (e a comparação com o estoque contado à
+  mão, pra achar "furos") acontece no front-end, não aqui — veja a seção 11.
+  **Atenção:** os seletores dessa rota ainda não foram validados contra o
+  HTML real do WTTI (ver `GUIA_SELETORES.md`, Passo 7).
 - `POST /api/login` — força um novo login no WTTI (útil se a sessão expirar
   no meio do dia).
 
@@ -135,7 +145,28 @@ editar nada.
 Se ativar `API_KEY` no `.env`, edite o `fetch()` da tela pra enviar o header
 `X-API-Key` com a mesma chave.
 
-## 9. Limitações importantes
+## 9. Sidebar de sugestão de reposição
+
+Botão "📦 Reposição" no canto superior direito da tela abre um painel onde
+dá pra digitar o código de um produto e ver:
+
+- **Saída no mês** — quanto desse produto saiu no período, puxado do
+  Relatório de Ranking de Produtos.
+- **Estoque no sistema** — quantidade cadastrada na tela de Manutenção de
+  Estoque por Filial. Esse número é sabidamente impreciso em relação à
+  contagem física real.
+- **Estoque contado** (campo opcional, digitado manualmente) — permite
+  comparar com o valor do sistema e sinalizar "furos" (diferença entre o
+  que o sistema acha que tem e o que foi contado de verdade).
+- **Meses de cobertura** (editável, padrão 2) — usado na fórmula da
+  sugestão: `saída do mês × meses de cobertura − estoque` (usando o
+  estoque contado, se preenchido; senão o do sistema).
+
+Os seletores dessas duas telas novas (`SEL_RANKING_*` e `SEL_ESTOQUE_*`)
+ainda não foram validados contra o HTML real do WTTI — veja
+`GUIA_SELETORES.md` (Passo 7) e `testar_reposicao.py` pra validar/ajustar.
+
+## 10. Limitações importantes
 
 - **Depende do layout do WTTI.** Se a tela mudar (atualização do sistema),
   os seletores em `.env` (`SEL_*`) podem parar de bater — veja
@@ -151,14 +182,15 @@ Se ativar `API_KEY` no `.env`, edite o `fetch()` da tela pra enviar o header
   qualquer instabilidade do WTTI (timeout, manutenção, mudança de tela)
   afeta diretamente a API.
 
-## 10. Estrutura dos arquivos
+## 11. Estrutura dos arquivos
 
 ```
 ├── app.py                    # rotas Flask (API + serve a tela em /)
-├── scraper.py                 # automação Selenium do WTTI (login + busca de nota + imagens)
+├── scraper.py                 # automação Selenium do WTTI (login, busca de nota, imagens, reposição)
 ├── config.py                  # todas as configurações via variáveis de ambiente
 ├── testar_login.py            # teste isolado de login no WTTI
 ├── testar_busca.py            # teste isolado de busca de nota no WTTI
+├── testar_reposicao.py        # teste isolado de saída do mês + estoque (sidebar de reposição)
 ├── static/
 │   └── index.html             # a tela de conferência (bancada), servida em "/"
 ├── GUIA_SELETORES.md          # passo a passo pra achar/reajustar os seletores CSS do WTTI

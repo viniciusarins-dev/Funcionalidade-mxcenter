@@ -10,6 +10,11 @@ Expõe:
                                          (galeria da tela de Cadastro de
                                          Produtos), buscado sob demanda por
                                          item pra não deixar /api/notas lento.
+  GET /api/produtos/<codigo>/reposicao -> saída do mês (Relatório de Ranking
+                                         de Produtos) + estoque cadastrado
+                                         no sistema (Manutenção de Estoque
+                                         por Filial), pra sidebar de
+                                         sugestão de pedido.
   GET /api/health                    -> status simples
   POST /api/login                    -> força um novo login no WTTI (útil se
                                          a sessão expirar no meio do dia)
@@ -26,6 +31,11 @@ Contrato de resposta de /api/notas/<codigo>:
 
 Contrato de resposta de /api/produtos/<codigo>/imagens:
 { "codigo": "1552", "imagens": ["https://mxcenter.wtti.app/Site/000182.jpg"] }
+
+Contrato de resposta de /api/produtos/<codigo>/reposicao:
+{ "codigo": "1552", "saida_mes": 106.0, "estoque_sistema": 20.0 }
+(o cálculo de quantidade sugerida e a comparação com o estoque contado à
+mão ficam por conta do front-end — a API só devolve os dois números crus)
 """
 
 import time
@@ -34,7 +44,16 @@ from flask import Flask, jsonify, request, abort, send_from_directory
 from flask_cors import CORS
 
 import config
-from scraper import scraper, buscar_nota, buscar_imagens_produto, NotaNaoEncontrada, ErroWtti
+from scraper import (
+    scraper,
+    buscar_nota,
+    buscar_imagens_produto,
+    buscar_estoque_produto,
+    buscar_saida_mes_produto,
+    NotaNaoEncontrada,
+    ProdutoNaoEncontrado,
+    ErroWtti,
+)
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app, origins=config.CORS_ORIGINS)
@@ -47,6 +66,7 @@ logging.basicConfig(level=logging.INFO)
 # escanear/digitar a mesma nota duas vezes em poucos minutos.
 _cache = {}  # codigo -> (timestamp, dados)
 _cache_imagens = {}  # codigo_produto -> (timestamp, [urls])
+_cache_reposicao = {}  # codigo_produto -> (timestamp, dados)
 
 
 def _buscar_com_cache(codigo):
@@ -73,6 +93,23 @@ def _buscar_imagens_com_cache(codigo_produto):
     urls = buscar_imagens_produto(codigo_produto)
     _cache_imagens[codigo_produto] = (agora, urls)
     return urls
+
+
+def _buscar_reposicao_com_cache(codigo_produto):
+    agora = time.time()
+    if codigo_produto in _cache_reposicao:
+        ts, dados = _cache_reposicao[codigo_produto]
+        if agora - ts < config.CACHE_TTL_SECONDS:
+            logger.info("Cache hit para reposição do produto %s", codigo_produto)
+            return dados
+
+    dados = {
+        "codigo": codigo_produto,
+        "saida_mes": buscar_saida_mes_produto(codigo_produto),
+        "estoque_sistema": buscar_estoque_produto(codigo_produto),
+    }
+    _cache_reposicao[codigo_produto] = (agora, dados)
+    return dados
 
 
 def _checar_api_key():
@@ -136,6 +173,31 @@ def obter_imagens_produto(codigo):
 
     except Exception as e:
         logger.exception("Erro inesperado ao buscar imagens do produto %s", codigo)
+        return jsonify({"erro": f"Falha interna ao consultar o WTTI: {e}"}), 500
+
+
+@app.route("/api/produtos/<codigo>/reposicao")
+def obter_reposicao(codigo):
+    _checar_api_key()
+    codigo = codigo.strip()
+
+    if not codigo:
+        return jsonify({"erro": "Código vazio"}), 400
+
+    try:
+        dados = _buscar_reposicao_com_cache(codigo)
+        return jsonify(dados), 200
+
+    except ProdutoNaoEncontrado as e:
+        logger.info("Reposição — produto não encontrado: %s", e)
+        return jsonify({"erro": str(e)}), 404
+
+    except ErroWtti as e:
+        logger.warning("Erro WTTI ao buscar reposição de %s: %s", codigo, e)
+        return jsonify({"erro": str(e)}), 502
+
+    except Exception as e:
+        logger.exception("Erro inesperado ao buscar reposição do produto %s", codigo)
         return jsonify({"erro": f"Falha interna ao consultar o WTTI: {e}"}), 500
 
 

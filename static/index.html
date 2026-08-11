@@ -163,6 +163,12 @@
 <!-- ============ TOPO FIXO — TARJA DE OBRA ============ -->
 <div class="h-2 hazard-strip"></div>
 
+<!-- ============ BOTÃO FLUTUANTE — SIDEBAR DE REPOSIÇÃO ============ -->
+<button id="btn-abrir-reposicao"
+  class="fixed top-4 right-4 z-40 flex items-center gap-2 bg-[color:var(--bg-panel)] border-2 border-[color:var(--line)] rounded-full pl-3 pr-4 py-2 text-xs md:text-sm font-stencil uppercase tracking-wider text-[color:var(--ink)] hover:border-[color:var(--yellow)] transition shadow-lg">
+  📦 Reposição
+</button>
+
 <!-- ============ TELA 1 — ENTRADA / SCAN ============ -->
 <main id="screen-home" class="min-h-[calc(100vh-8px)] flex flex-col items-center justify-center px-4 py-10">
 
@@ -316,6 +322,75 @@
     </div>
   </div>
 </div>
+
+<!-- ============ SIDEBAR — SUGESTÃO DE REPOSIÇÃO ============ -->
+<div id="reposicao-overlay" class="hidden fixed inset-0 z-50 bg-black/60"></div>
+<aside id="reposicao-sidebar"
+  class="fixed top-0 right-0 z-[55] h-full w-full max-w-sm bg-[color:var(--bg-panel)] border-l-2 border-[color:var(--line)] shadow-2xl translate-x-full transition-transform duration-300 ease-out flex flex-col">
+
+  <div class="flex items-center justify-between px-5 py-4 border-b-2 border-[color:var(--line)]">
+    <div>
+      <p class="font-stencil uppercase tracking-[0.2em] text-[10px] text-[color:var(--yellow)]">Estoque</p>
+      <h2 class="font-display text-lg leading-none mt-1">Sugestão de Pedido</h2>
+    </div>
+    <button id="btn-fechar-reposicao" class="text-[color:var(--ink)] text-2xl leading-none px-2">✕</button>
+  </div>
+
+  <div class="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
+
+    <div>
+      <label for="reposicao-codigo" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Código do produto</label>
+      <div class="flex gap-2">
+        <input id="reposicao-codigo" type="text" inputmode="numeric" autocomplete="off" placeholder="Ex: 1552"
+          class="scanner-input flex-1 min-w-0 bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)] placeholder:text-[#4a5160]">
+        <button id="btn-buscar-reposicao"
+          class="shrink-0 font-stencil uppercase tracking-wider bg-[color:var(--yellow)] text-[#14171d] font-bold rounded-xl px-4 hover:brightness-110 active:scale-95 transition">
+          Buscar
+        </button>
+      </div>
+      <p id="reposicao-erro" class="hidden text-[color:var(--red)] font-semibold mt-2 text-sm"></p>
+    </div>
+
+    <div id="reposicao-loading" class="hidden flex items-center gap-3 text-[color:var(--ink-dim)] text-sm font-mono">
+      <div class="spinner" style="width:24px;height:24px;border-width:3px;"></div>
+      Consultando WTTI…
+    </div>
+
+    <div id="reposicao-resultado" class="hidden flex flex-col gap-4">
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
+          <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Saiu no mês</p>
+          <p id="reposicao-saida-mes" class="font-mono text-2xl mt-1">—</p>
+        </div>
+        <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
+          <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Estoque no sistema</p>
+          <p id="reposicao-estoque-sistema" class="font-mono text-2xl mt-1">—</p>
+        </div>
+      </div>
+      <p class="text-[10px] text-[color:var(--ink-dim)] -mt-2">⚠ O estoque do sistema pode estar desatualizado em relação à contagem física.</p>
+
+      <div>
+        <label for="reposicao-estoque-real" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Estoque contado (opcional)</label>
+        <input id="reposicao-estoque-real" type="number" inputmode="decimal" min="0" step="1" placeholder="Digite se contou fisicamente"
+          class="w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)] placeholder:text-[#4a5160]">
+        <p id="reposicao-furo" class="hidden text-xs font-mono mt-2"></p>
+      </div>
+
+      <div>
+        <label for="reposicao-meses" class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] block mb-2">Meses de cobertura</label>
+        <input id="reposicao-meses" type="number" inputmode="decimal" min="0.5" step="0.5" value="2"
+          class="w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-3 py-3 text-lg font-mono text-[color:var(--ink)]">
+      </div>
+
+      <div class="bg-[color:var(--bg-card)] border-2 border-[color:var(--yellow)] rounded-xl px-4 py-4 text-center">
+        <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--yellow)]">Sugestão de pedido</p>
+        <p id="reposicao-sugestao" class="font-display text-3xl mt-1">—</p>
+        <p id="reposicao-sugestao-formula" class="font-mono text-[10px] text-[color:var(--ink-dim)] mt-1"></p>
+      </div>
+    </div>
+  </div>
+</aside>
 
 <script>
 (function(){
@@ -1033,6 +1108,149 @@
 
   // Autofocus garantido mesmo se o navegador ignorar o atributo
   window.addEventListener('load', () => scanInput.focus());
+
+  // ---------------------------------------------------------------
+  // 12) SIDEBAR — SUGESTÃO DE REPOSIÇÃO
+  // ---------------------------------------------------------------
+  // Contrato esperado do endpoint:
+  //   GET {API_BASE_URL}/produtos/{codigo}/reposicao
+  //   Resposta 200: { "codigo": "1552", "saida_mes": 106.0, "estoque_sistema": 20.0 }
+  // O cálculo da quantidade sugerida e a comparação com o estoque contado
+  // à mão (pra achar "furos" entre sistema e contagem física) acontecem
+  // aqui no front-end, porque dependem de um valor que só existe na tela
+  // (o operador digitando o que contou).
+  const btnAbrirReposicao = document.getElementById('btn-abrir-reposicao');
+  const btnFecharReposicao = document.getElementById('btn-fechar-reposicao');
+  const reposicaoOverlay = document.getElementById('reposicao-overlay');
+  const reposicaoSidebar = document.getElementById('reposicao-sidebar');
+  const reposicaoCodigo = document.getElementById('reposicao-codigo');
+  const btnBuscarReposicao = document.getElementById('btn-buscar-reposicao');
+  const reposicaoErro = document.getElementById('reposicao-erro');
+  const reposicaoLoading = document.getElementById('reposicao-loading');
+  const reposicaoResultado = document.getElementById('reposicao-resultado');
+  const reposicaoSaidaMesEl = document.getElementById('reposicao-saida-mes');
+  const reposicaoEstoqueSistemaEl = document.getElementById('reposicao-estoque-sistema');
+  const reposicaoEstoqueReal = document.getElementById('reposicao-estoque-real');
+  const reposicaoFuro = document.getElementById('reposicao-furo');
+  const reposicaoMeses = document.getElementById('reposicao-meses');
+  const reposicaoSugestaoEl = document.getElementById('reposicao-sugestao');
+  const reposicaoSugestaoFormula = document.getElementById('reposicao-sugestao-formula');
+
+  let reposicaoDados = null; // { codigo, saida_mes, estoque_sistema }
+
+  function formatarNumero(n){
+    return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  }
+
+  function abrirSidebarReposicao(){
+    reposicaoOverlay.classList.remove('hidden');
+    reposicaoSidebar.classList.remove('translate-x-full');
+    setTimeout(() => reposicaoCodigo.focus(), 50);
+  }
+
+  function fecharSidebarReposicao(){
+    reposicaoOverlay.classList.add('hidden');
+    reposicaoSidebar.classList.add('translate-x-full');
+  }
+
+  btnAbrirReposicao.addEventListener('click', abrirSidebarReposicao);
+  btnFecharReposicao.addEventListener('click', fecharSidebarReposicao);
+  reposicaoOverlay.addEventListener('click', fecharSidebarReposicao);
+
+  async function buscarReposicao(){
+    const codigo = (reposicaoCodigo.value || '').trim();
+    reposicaoErro.classList.add('hidden');
+    reposicaoErro.textContent = '';
+
+    if (!codigo){
+      reposicaoErro.textContent = "Digite o código do produto.";
+      reposicaoErro.classList.remove('hidden');
+      return;
+    }
+
+    reposicaoResultado.classList.add('hidden');
+    reposicaoLoading.classList.remove('hidden');
+    btnBuscarReposicao.disabled = true;
+
+    try {
+      const resp = await fetch(`${CONFIG.API_BASE_URL}/produtos/${encodeURIComponent(codigo)}/reposicao`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!resp.ok){
+        const corpo = await resp.json().catch(() => ({}));
+        throw new Error(corpo.erro || `API respondeu ${resp.status}`);
+      }
+
+      reposicaoDados = await resp.json();
+      reposicaoEstoqueReal.value = '';
+      renderizarReposicao();
+      reposicaoResultado.classList.remove('hidden');
+
+    } catch (e){
+      console.error('Erro ao buscar reposição:', e);
+      reposicaoErro.textContent = `Falha ao consultar: ${e.message}`;
+      reposicaoErro.classList.remove('hidden');
+    } finally {
+      reposicaoLoading.classList.add('hidden');
+      btnBuscarReposicao.disabled = false;
+    }
+  }
+
+  function renderizarReposicao(){
+    if (!reposicaoDados) return;
+
+    reposicaoSaidaMesEl.textContent = formatarNumero(reposicaoDados.saida_mes);
+    reposicaoEstoqueSistemaEl.textContent = formatarNumero(reposicaoDados.estoque_sistema);
+
+    const estoqueRealTexto = reposicaoEstoqueReal.value.trim();
+    const temEstoqueReal = estoqueRealTexto !== '' && !isNaN(parseFloat(estoqueRealTexto));
+    const estoqueReal = temEstoqueReal ? parseFloat(estoqueRealTexto) : null;
+
+    if (temEstoqueReal){
+      const furo = reposicaoDados.estoque_sistema - estoqueReal;
+      if (Math.abs(furo) < 0.01){
+        reposicaoFuro.textContent = "✓ Bate com o sistema, sem furo.";
+        reposicaoFuro.style.color = 'var(--green)';
+      } else if (furo > 0){
+        reposicaoFuro.textContent = `⚠ Furo de ${formatarNumero(furo)} unidade(s) — sistema mostra mais do que foi contado.`;
+        reposicaoFuro.style.color = 'var(--red)';
+      } else {
+        reposicaoFuro.textContent = `Contagem tem ${formatarNumero(-furo)} unidade(s) a mais do que o sistema.`;
+        reposicaoFuro.style.color = 'var(--yellow)';
+      }
+      reposicaoFuro.classList.remove('hidden');
+    } else {
+      reposicaoFuro.classList.add('hidden');
+    }
+
+    const estoqueUsado = temEstoqueReal ? estoqueReal : reposicaoDados.estoque_sistema;
+    const meses = parseFloat(reposicaoMeses.value) || 0;
+    const sugestao = (reposicaoDados.saida_mes * meses) - estoqueUsado;
+
+    if (sugestao <= 0){
+      reposicaoSugestaoEl.textContent = "0";
+      reposicaoSugestaoEl.style.color = 'var(--green)';
+    } else {
+      reposicaoSugestaoEl.textContent = formatarNumero(sugestao);
+      reposicaoSugestaoEl.style.color = 'var(--yellow)';
+    }
+
+    reposicaoSugestaoFormula.textContent =
+      `${formatarNumero(reposicaoDados.saida_mes)} × ${formatarNumero(meses)} meses − ${formatarNumero(estoqueUsado)} em estoque` +
+      (temEstoqueReal ? ' (contado)' : ' (sistema)');
+  }
+
+  btnBuscarReposicao.addEventListener('click', buscarReposicao);
+  reposicaoCodigo.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter'){
+      e.preventDefault();
+      buscarReposicao();
+    }
+  });
+  reposicaoEstoqueReal.addEventListener('input', renderizarReposicao);
+  reposicaoMeses.addEventListener('input', renderizarReposicao);
 
 })();
 </script>

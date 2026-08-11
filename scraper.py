@@ -74,6 +74,12 @@ class NotaNaoEncontrada(Exception):
     pass
 
 
+class ProdutoNaoEncontrado(Exception):
+    """Código de produto não encontrado num grid (ranking de saída ou
+    manutenção de estoque)."""
+    pass
+
+
 class ErroWtti(Exception):
     """Erro genérico de scraping (login falhou, seletor não encontrado,
     navegador crashou mesmo após tentar recuperar, etc.)"""
@@ -295,6 +301,112 @@ class WttiScraper:
         urls = [el.get_attribute("data-src") for el in itens_galeria]
         return [u for u in urls if u]
 
+    # -----------------------------------------------------------------
+    # Reposição — estoque no sistema + saída do mês (sidebar de sugestão)
+    # -----------------------------------------------------------------
+    def buscar_estoque_produto(self, codigo_produto):
+        """Consulta a tela de Manutenção de Estoque por Filial e devolve a
+        quantidade em estoque cadastrada no sistema pra esse código. Esse
+        número pode estar desatualizado em relação à contagem física real
+        — quem decide o que fazer com a diferença é a tela (sidebar), não
+        este método."""
+        with self._lock:
+            self._garantir_driver()
+            if not self._logado:
+                self.login()
+            try:
+                return self._buscar_estoque_produto_interno(codigo_produto)
+            except WebDriverException as e:
+                logger.warning("Navegador travou buscando estoque (%s). Reiniciando e tentando 1x mais...", e)
+                self._salvar_evidencia_erro("navegador_travou_estoque")
+                self._reiniciar_driver()
+                self.login(forcar=True)
+                return self._buscar_estoque_produto_interno(codigo_produto)
+
+    def buscar_saida_mes_produto(self, codigo_produto):
+        """Consulta o Relatório de Ranking de Produtos e devolve a
+        quantidade que saiu no mês (conforme o período que a própria tela
+        carrega por padrão) pra esse código."""
+        with self._lock:
+            self._garantir_driver()
+            if not self._logado:
+                self.login()
+            try:
+                return self._buscar_saida_mes_produto_interno(codigo_produto)
+            except WebDriverException as e:
+                logger.warning("Navegador travou buscando saída do mês (%s). Reiniciando e tentando 1x mais...", e)
+                self._salvar_evidencia_erro("navegador_travou_ranking")
+                self._reiniciar_driver()
+                self.login(forcar=True)
+                return self._buscar_saida_mes_produto_interno(codigo_produto)
+
+    def _buscar_estoque_produto_interno(self, codigo_produto):
+        self._driver.get(config.WTTI_ESTOQUE_URL)
+
+        if config.SEL_ESTOQUE_BUSCA_INPUT:
+            self._preencher(config.SEL_ESTOQUE_BUSCA_INPUT, codigo_produto)
+            if config.SEL_ESTOQUE_BUSCA_SUBMIT:
+                self._clicar(config.SEL_ESTOQUE_BUSCA_SUBMIT)
+
+        return self._extrair_valor_de_grid(
+            tabela_sel=config.SEL_ESTOQUE_TABELA,
+            linhas_sel=config.SEL_ESTOQUE_LINHAS,
+            col_codigo=config.COL_ESTOQUE_CODIGO,
+            col_valor=config.COL_ESTOQUE_QTD,
+            codigo_produto=codigo_produto,
+            rotulo_erro="estoque",
+        )
+
+    def _buscar_saida_mes_produto_interno(self, codigo_produto):
+        self._driver.get(config.WTTI_RANKING_URL)
+
+        if config.SEL_RANKING_MES_INPUT:
+            self._preencher(config.SEL_RANKING_MES_INPUT, "")  # AJUSTAR: valor do mês/período desejado
+            if config.SEL_RANKING_SUBMIT:
+                self._clicar(config.SEL_RANKING_SUBMIT)
+
+        return self._extrair_valor_de_grid(
+            tabela_sel=config.SEL_RANKING_TABELA,
+            linhas_sel=config.SEL_RANKING_LINHAS,
+            col_codigo=config.COL_RANKING_CODIGO,
+            col_valor=config.COL_RANKING_QTD,
+            codigo_produto=codigo_produto,
+            rotulo_erro="ranking",
+        )
+
+    def _extrair_valor_de_grid(self, tabela_sel, linhas_sel, col_codigo, col_valor, codigo_produto, rotulo_erro):
+        """Escaneia as linhas de um grid procurando a linha cujo texto na
+        coluna col_codigo bate com codigo_produto, e devolve o número da
+        coluna col_valor dessa linha. Se o produto não tiver nenhuma saída
+        no período (não aparece no ranking) ou não existir no grid de
+        estoque, considera 0 — não é necessariamente um erro."""
+        try:
+            self._esperar_visivel(tabela_sel)
+        except TimeoutException:
+            self._salvar_evidencia_erro(f"grid_{rotulo_erro}_nao_carregou_{codigo_produto}")
+            raise ProdutoNaoEncontrado(
+                f"O grid de {rotulo_erro} não carregou pra consultar o produto {codigo_produto}."
+            )
+
+        linhas = self._driver.find_elements(By.CSS_SELECTOR, linhas_sel)
+        for linha in linhas:
+            colunas = linha.find_elements(By.TAG_NAME, "td")
+            if len(colunas) <= max(col_codigo, col_valor):
+                continue
+            if colunas[col_codigo].text.strip() != str(codigo_produto).strip():
+                continue
+            texto_valor = colunas[col_valor].text.strip()
+            try:
+                return float(texto_valor.replace(".", "").replace(",", "."))
+            except ValueError:
+                logger.warning("Valor não numérico na coluna de %s: %r", rotulo_erro, texto_valor)
+                return 0.0
+
+        # Produto não apareceu no grid: trata como zero (sem saída no
+        # período, ou sem registro de estoque), não como erro — quem decide
+        # se isso é normal ou um "furo" é o operador, vendo a tela.
+        return 0.0
+
     def _selecionar_nota_por_tipo(self, codigo, tipo_desejado):
         """
         A busca leva a um grid de resultados (gdwNotas) que pode listar mais
@@ -441,3 +553,13 @@ def buscar_nota(codigo):
 def buscar_imagens_produto(codigo_produto):
     """Função de conveniência — é isso que o app.py importa e chama."""
     return scraper.buscar_imagens_produto(codigo_produto)
+
+
+def buscar_estoque_produto(codigo_produto):
+    """Função de conveniência — é isso que o app.py importa e chama."""
+    return scraper.buscar_estoque_produto(codigo_produto)
+
+
+def buscar_saida_mes_produto(codigo_produto):
+    """Função de conveniência — é isso que o app.py importa e chama."""
+    return scraper.buscar_saida_mes_produto(codigo_produto)
