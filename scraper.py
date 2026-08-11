@@ -347,15 +347,7 @@ class WttiScraper:
                 f"Código {codigo_produto} não retornou nenhum resultado no Relatório Produto x Saldo."
             )
 
-        linha_alvo = None
-        linhas = self._driver.find_elements(By.CSS_SELECTOR, f"{config.SEL_SALDO_GRID_PRODUTOS} tbody tr")
-        for linha in linhas:
-            colunas = linha.find_elements(By.TAG_NAME, "td")
-            if len(colunas) <= config.COL_SALDO_CODIGO:
-                continue
-            if colunas[config.COL_SALDO_CODIGO].text.strip() == str(codigo_produto).strip():
-                linha_alvo = linha
-                break
+        linha_alvo = self._procurar_linha_produto_com_paginacao(codigo_produto)
 
         if linha_alvo is None:
             self._salvar_evidencia_erro(f"saldo_codigo_nao_encontrado_{codigo_produto}")
@@ -384,6 +376,57 @@ class WttiScraper:
             saida_mes = self._somar_saidas_do_mes()
 
         return {"produto": descricao, "estoque": estoque, "saida_mes": saida_mes}
+
+    def _procurar_linha_produto_com_paginacao(self, codigo_produto):
+        """O grid #gdwProdutos faz busca por "contém", não por código exato
+        — buscar "45" pode trazer 1145, 1245, 145, 1457... espalhados por
+        várias páginas, com "45" em si em qualquer uma delas (ou em
+        nenhuma). Percorre as páginas clicando em "próxima" até achar a
+        linha com o código EXATO ou esgotar a paginação."""
+        MAX_PAGINAS = 20  # trava de segurança contra loop infinito
+        for _ in range(MAX_PAGINAS):
+            linhas = self._driver.find_elements(By.CSS_SELECTOR, f"{config.SEL_SALDO_GRID_PRODUTOS} tbody tr")
+            for linha in linhas:
+                if "gridviewPaginacao" in (linha.get_attribute("class") or ""):
+                    continue
+                colunas = linha.find_elements(By.TAG_NAME, "td")
+                if len(colunas) <= config.COL_SALDO_CODIGO:
+                    continue
+                if colunas[config.COL_SALDO_CODIGO].text.strip() == str(codigo_produto).strip():
+                    return linha
+
+            if not self._ir_para_proxima_pagina_produtos():
+                break  # não tem mais página — esgotou a busca
+
+        return None
+
+    def _ir_para_proxima_pagina_produtos(self):
+        """Clica no link da próxima página de #gdwProdutos (linha
+        <tr class="gridviewPaginacao">, com a página atual num <span> sem
+        link e as outras em <a>). Devolve True se avançou, False se já
+        estava na última página ou não tinha paginação nenhuma."""
+        try:
+            linha_paginacao = self._driver.find_element(
+                By.CSS_SELECTOR, f"{config.SEL_SALDO_GRID_PRODUTOS} tr.gridviewPaginacao"
+            )
+        except NoSuchElementException:
+            return False  # resultado cabe numa página só, sem paginação
+
+        celulas = linha_paginacao.find_elements(By.TAG_NAME, "td")
+        pagina_atual_idx = next(
+            (idx for idx, celula in enumerate(celulas) if celula.find_elements(By.TAG_NAME, "span")),
+            None,
+        )
+        if pagina_atual_idx is None or pagina_atual_idx + 1 >= len(celulas):
+            return False  # já é a última página desse bloco de paginação
+
+        links_proxima = celulas[pagina_atual_idx + 1].find_elements(By.TAG_NAME, "a")
+        if not links_proxima:
+            return False
+
+        links_proxima[0].click()
+        self._esperar_visivel(config.SEL_SALDO_GRID_PRODUTOS)
+        return True
 
     def _somar_saidas_do_mes(self):
         """Percorre a tabela de histórico (#gdwResultado) somando a coluna
