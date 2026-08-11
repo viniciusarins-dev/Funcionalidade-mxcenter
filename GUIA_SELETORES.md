@@ -237,19 +237,25 @@ URL: `https://mxcenter.wtti.app/View/Relatorio/RelatorioRankingProdutos.aspx`
    - `COL_RANKING_CODIGO` — coluna com o código do produto.
    - `COL_RANKING_QTD` — coluna com a quantidade vendida/saída no período.
 
-### 7.2 — Manutenção de Estoque por Filial
+### 7.2 — Manutenção de Estoque por Filial ✅ (validado em 2026-08-11)
 
 URL: `https://mxcenter.wtti.app/View/Cadastro/ManutencaoEstoqueFilial.aspx`
 
-1. Veja se essa tela tem um campo de busca por código de produto:
-   - Se **sim**: inspecione o campo e o botão de buscar, anote os `id`s
-     em `SEL_ESTOQUE_BUSCA_INPUT` e `SEL_ESTOQUE_BUSCA_SUBMIT`.
-   - Se **não** (a tela já lista todos os produtos de uma vez, sem
-     filtro): deixe os dois vazios no `.env` — o scraper vai escanear
-     todas as linhas do grid procurando o código, igual faz no ranking.
-2. Inspecione a tabela/grid de estoque, anote `id` em `SEL_ESTOQUE_TABELA`
-   e o seletor de linha em `SEL_ESTOQUE_LINHAS`.
-3. Conte as colunas e anote `COL_ESTOQUE_CODIGO` e `COL_ESTOQUE_QTD`.
+Seletores confirmados com `testar_reposicao.py 203` (produto "BATENTE
+16MM - SHOWA", estoque = 53):
+
+```
+SEL_ESTOQUE_BUSCA_INPUT=#txtCodProduto
+SEL_ESTOQUE_BUSCA_SUBMIT=#btnPesquisa
+SEL_ESTOQUE_TABELA=#gdwVendas
+SEL_ESTOQUE_LINHAS=#gdwVendas tbody tr
+COL_ESTOQUE_QTD=2
+```
+
+`COL_ESTOQUE_CODIGO` ficou no default (`0`) — não foi confirmado
+explicitamente qual coluna do grid `#gdwVendas` tem o código do produto.
+Se algum produto vier com estoque `0` errado (o código pode não estar
+batendo na coluna certa), esse é o primeiro lugar pra conferir.
 
 ### 7.3 — Testar
 

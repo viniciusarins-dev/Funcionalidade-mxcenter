@@ -83,18 +83,19 @@ SEL_RANKING_LINHAS = _env("SEL_RANKING_LINHAS", "#gdwRanking tbody tr")
 COL_RANKING_CODIGO = int(_env("COL_RANKING_CODIGO", "0"))
 COL_RANKING_QTD = int(_env("COL_RANKING_QTD", "1"))
 
-# --- Tela de Manutenção de Estoque por Filial — AJUSTAR -----------------
-# Tela: View/Cadastro/ManutencaoEstoqueFilial.aspx. O número que essa tela
-# mostra pode estar desatualizado em relação à contagem física real — por
-# isso a sidebar de reposição também deixa digitar o estoque contado à mão
-# pra comparar com o valor do sistema.
+# --- Tela de Manutenção de Estoque por Filial (validado em 2026-08-11
+# com testar_reposicao.py, produto 203 = "BATENTE 16MM - SHOWA", estoque
+# = 53) -------------------------------------------------------------
+# O número que essa tela mostra pode estar desatualizado em relação à
+# contagem física real — por isso a sidebar de reposição também deixa
+# digitar o estoque contado à mão pra comparar com o valor do sistema.
 WTTI_ESTOQUE_URL = _env("WTTI_ESTOQUE_URL", f"{WTTI_BASE_URL}/View/Cadastro/ManutencaoEstoqueFilial.aspx")
-SEL_ESTOQUE_BUSCA_INPUT = _env("SEL_ESTOQUE_BUSCA_INPUT", "")
-SEL_ESTOQUE_BUSCA_SUBMIT = _env("SEL_ESTOQUE_BUSCA_SUBMIT", "")
-SEL_ESTOQUE_TABELA = _env("SEL_ESTOQUE_TABELA", "#gdwEstoque")
-SEL_ESTOQUE_LINHAS = _env("SEL_ESTOQUE_LINHAS", "#gdwEstoque tbody tr")
-COL_ESTOQUE_CODIGO = int(_env("COL_ESTOQUE_CODIGO", "0"))
-COL_ESTOQUE_QTD = int(_env("COL_ESTOQUE_QTD", "1"))
+SEL_ESTOQUE_BUSCA_INPUT = _env("SEL_ESTOQUE_BUSCA_INPUT", "#txtCodProduto")
+SEL_ESTOQUE_BUSCA_SUBMIT = _env("SEL_ESTOQUE_BUSCA_SUBMIT", "#btnPesquisa")
+SEL_ESTOQUE_TABELA = _env("SEL_ESTOQUE_TABELA", "#gdwVendas")
+SEL_ESTOQUE_LINHAS = _env("SEL_ESTOQUE_LINHAS", "#gdwVendas tbody tr")
+COL_ESTOQUE_CODIGO = int(_env("COL_ESTOQUE_CODIGO", "0"))  # AJUSTAR se o furo não bater — não confirmado explicitamente
+COL_ESTOQUE_QTD = int(_env("COL_ESTOQUE_QTD", "2"))
 
 # --- API ---------------------------------------------------------------
 API_KEY = _env("API_KEY", "")  # se vazio, autenticação por chave fica desabilitada
