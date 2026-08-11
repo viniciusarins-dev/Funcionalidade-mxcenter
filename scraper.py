@@ -377,6 +377,7 @@ class WttiScraper:
 
         return {"produto": descricao, "estoque": estoque, "saida_mes": saida_mes}
 
+    @retry_em_stale()
     def _procurar_linha_produto_com_paginacao(self, codigo_produto):
         """O grid #gdwProdutos faz busca por "contém", não por código exato
         — buscar "45" pode trazer 1145, 1245, 145, 1457... espalhados por
@@ -430,6 +431,7 @@ class WttiScraper:
         self._esperar_visivel(config.SEL_SALDO_GRID_PRODUTOS)
         return True
 
+    @retry_em_stale()
     def _somar_saidas_do_mes(self):
         """Percorre a tabela de histórico (#gdwResultado) somando a coluna
         Qtd de todas as linhas com Tipo="Saídas" dentro do bloco do mês
