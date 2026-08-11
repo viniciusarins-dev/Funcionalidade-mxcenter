@@ -1,0 +1,21 @@
+# NUNCA versionar segredos
+.env
+*.pfx
+*.p12
+__pycache__/
+*.pyc
+venv/
+env/
+.venv/
+
+# Ambientes virtuais criados pelo `python -m venv` (Scripts/, Lib/, pyvenv.cfg etc.)
+Scripts/
+Lib/
+Include/
+pyvenv.cfg
+
+# Evidências de erro do scraper (podem conter dados de cliente/pedido)
+debug_screenshots/
+
+# Configuração local do Claude Code (não é parte do projeto)
+settings.local.json

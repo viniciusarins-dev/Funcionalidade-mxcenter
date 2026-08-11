@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bancada de Conferência — Separação de Pedidos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-floor: #14171d;
+    --bg-panel: #1e222a;
+    --bg-card: #262b35;
+    --line: #383f4d;
+    --yellow: #ffc400;
+    --yellow-dim: #7a6100;
+    --green: #17a54a;
+    --green-dark: #0d7a37;
+    --red: #e2432f;
+    --ink: #f4f4f0;
+    --ink-dim: #9aa1af;
+  }
+  html,body{ background:var(--bg-floor); font-family:'Inter',sans-serif; }
+  .font-display{ font-family:'Archivo Black', sans-serif; }
+  .font-stencil{ font-family:'Oswald', sans-serif; }
+  .font-mono{ font-family:'JetBrains Mono', monospace; }
+
+  .hazard-strip{
+    background: repeating-linear-gradient(135deg, var(--yellow), var(--yellow) 14px, #1a1a1a 14px, #1a1a1a 28px);
+  }
+  .scan-caret::after{
+    content:"";
+    display:inline-block;
+    width:3px; height:1.1em;
+    background:var(--yellow);
+    margin-left:6px;
+    vertical-align:-0.15em;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  .scanner-input{
+    caret-color: var(--yellow);
+  }
+  .scanner-input:focus{
+    box-shadow: 0 0 0 4px rgba(255,196,0,0.18);
+  }
+
+  .shake{ animation: shake 0.4s; }
+  @keyframes shake{
+    10%,90%{ transform: translateX(-2px); }
+    20%,80%{ transform: translateX(4px); }
+    30%,50%,70%{ transform: translateX(-8px); }
+    40%,60%{ transform: translateX(8px); }
+  }
+
+  .item-card{
+    transition: background-color .18s ease, border-color .18s ease, transform .12s ease;
+  }
+  .item-card:active{ transform: scale(0.99); }
+  .item-card.done{
+    background: linear-gradient(90deg, rgba(23,165,74,0.16), rgba(23,165,74,0.05));
+    border-color: var(--green);
+  }
+
+  .stamp{
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    letter-spacing: 0.06em;
+    border: 4px solid currentColor;
+    border-radius: 10px;
+    transform: rotate(-8deg) scale(0.85);
+    opacity: 0;
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .item-card.done .stamp{
+    opacity: 1;
+    transform: rotate(-8deg) scale(1);
+  }
+  .checkbox-shell{
+    transition: background-color .18s ease, border-color .18s ease;
+  }
+
+  .progress-track{
+    background: repeating-linear-gradient(90deg, var(--line), var(--line) 2px, transparent 2px, transparent 10px);
+  }
+  .progress-fill{
+    transition: width .3s ease;
+  }
+
+  .drop-zone.drag-over{
+    border-color: var(--yellow);
+    background: rgba(255,196,0,0.06);
+  }
+
+  .banner-complete{
+    animation: pop-in .35s cubic-bezier(.2,.9,.3,1.3);
+  }
+  @keyframes pop-in{
+    0%{ transform: scale(0.9); opacity:0; }
+    100%{ transform: scale(1); opacity:1; }
+  }
+
+  ::selection{ background: var(--yellow); color:#14171d; }
+  :focus-visible{ outline: 3px solid var(--yellow); outline-offset: 2px; }
+
+  /* Modal da câmera */
+  #camera-modal{
+    background: rgba(10,12,16,0.92);
+    backdrop-filter: blur(2px);
+  }
+  #camera-reader{
+    border-radius: 16px;
+    overflow: hidden;
+    border: 3px solid var(--yellow);
+  }
+  #camera-reader video{
+    width: 100% !important;
+  }
+  .scan-frame-hint{
+    position:absolute; inset:0;
+    pointer-events:none;
+    border: 3px dashed rgba(255,196,0,0.55);
+    margin: 15%;
+    border-radius: 12px;
+  }
+
+  .btn-secondary{
+    font-family:'Oswald', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: border-color .15s ease, background-color .15s ease;
+  }
+  .btn-secondary:hover{ border-color: var(--yellow); }
+
+  /* Overlay de carregamento — busca no WTTI via Selenium não é instantânea */
+  #loading-overlay{
+    background: rgba(10,12,16,0.94);
+    backdrop-filter: blur(2px);
+  }
+  .spinner{
+    width: 56px; height: 56px;
+    border: 5px solid var(--line);
+    border-top-color: var(--yellow);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  details.mais-opcoes summary{
+    cursor: pointer;
+    list-style: none;
+  }
+  details.mais-opcoes summary::-webkit-details-marker{ display:none; }
+  details.mais-opcoes[open] .seta{ transform: rotate(180deg); }
+  .seta{ transition: transform .2s ease; display:inline-block; }
+</style>
+</head>
+<body class="min-h-screen text-[color:var(--ink)]">
+
+<!-- ============ TOPO FIXO — TARJA DE OBRA ============ -->
+<div class="h-2 hazard-strip"></div>
+
+<!-- ============ TELA 1 — ENTRADA / SCAN ============ -->
+<main id="screen-home" class="min-h-[calc(100vh-8px)] flex flex-col items-center justify-center px-4 py-10">
+
+  <div class="w-full max-w-2xl">
+
+    <div class="text-center mb-10">
+      <p class="font-stencil uppercase tracking-[0.35em] text-xs md:text-sm text-[color:var(--yellow)] mb-3">Bancada de Expedição</p>
+      <h1 class="font-display text-3xl md:text-5xl leading-tight">CONFERÊNCIA<br>DE PEDIDOS</h1>
+      <p class="font-stencil text-[color:var(--ink-dim)] text-base md:text-lg mt-4">Digite o número da nota fiscal</p>
+    </div>
+
+    <!-- Input de leitura -->
+    <div class="bg-[color:var(--bg-panel)] border-2 border-[color:var(--line)] rounded-2xl p-5 md:p-7 shadow-2xl">
+      <label for="scan-input" class="font-stencil uppercase text-xs tracking-[0.25em] text-[color:var(--ink-dim)] block mb-3">
+        Número da NF <span class="scan-caret"></span>
+      </label>
+      <input
+        id="scan-input"
+        type="text"
+        inputmode="numeric"
+        autocomplete="off"
+        autofocus
+        placeholder="Ex: 1234"
+        class="scanner-input w-full bg-[#10131a] border-2 border-[color:var(--line)] rounded-xl px-4 py-5 text-3xl md:text-4xl font-mono tracking-wide text-[color:var(--ink)] placeholder:text-[#4a5160] text-center"
+      >
+      <button id="btn-buscar"
+        class="w-full mt-3 font-stencil uppercase tracking-wider bg-[color:var(--yellow)] text-[#14171d] font-bold text-xl md:text-2xl rounded-xl px-6 py-5 hover:brightness-110 active:scale-95 transition">
+        Buscar no WTTI
+      </button>
+      <p id="scan-error" class="hidden text-[color:var(--red)] font-semibold mt-3 text-sm md:text-base"></p>
+      <div id="chave-info" class="hidden mt-3 bg-[#10131a] border border-[color:var(--line)] rounded-xl px-4 py-3 font-mono text-xs md:text-sm text-[color:var(--ink-dim)]"></div>
+
+      <!-- Opções avançadas, recolhidas por padrão — o fluxo principal é só o número da NF -->
+      <details class="mais-opcoes mt-5 border-t border-[color:var(--line)] pt-4">
+        <summary class="font-stencil uppercase text-xs tracking-[0.2em] text-[color:var(--ink-dim)] flex items-center justify-between">
+          <span>Mais opções (câmera, XML)</span>
+          <span class="seta">▾</span>
+        </summary>
+
+        <div class="flex flex-col sm:flex-row gap-3 mt-4">
+          <button id="btn-abrir-camera"
+            class="btn-secondary flex-1 flex items-center justify-center gap-2 border-2 border-[color:var(--line)] rounded-xl px-4 py-3 text-sm md:text-base font-semibold text-[color:var(--ink)]">
+            📷 Abrir Câmera / Escanear Nota
+          </button>
+          <button id="btn-selecionar-pasta"
+            class="btn-secondary flex-1 flex items-center justify-center gap-2 border-2 border-[color:var(--line)] rounded-xl px-4 py-3 text-sm md:text-base font-semibold text-[color:var(--ink)]">
+            📁 Selecionar Pasta de XMLs
+          </button>
+        </div>
+
+        <!-- Upload / Drag-and-drop de XML -->
+        <div id="drop-zone" class="drop-zone mt-4 border-2 border-dashed border-[color:var(--line)] rounded-2xl p-6 text-center cursor-pointer hover:border-[color:var(--yellow)] transition">
+          <input id="xml-input" type="file" accept=".xml" multiple class="hidden">
+          <p class="font-stencil text-[color:var(--ink-dim)] uppercase tracking-widest text-xs md:text-sm mb-1">Sem leitor? Envie o XML da NF-e</p>
+          <p class="text-sm text-[color:var(--ink)]">Arraste o arquivo aqui ou <span class="text-[color:var(--yellow)] underline">clique para selecionar</span></p>
+          <p id="xml-status" class="text-xs font-mono text-[color:var(--ink-dim)] mt-2"></p>
+          <p id="pasta-status" class="text-xs font-mono text-[color:var(--ink-dim)] mt-1"></p>
+        </div>
+      </details>
+    </div>
+
+    <!-- Indicador da fonte de dados ativa -->
+    <div class="mt-4 flex items-center gap-2 justify-center">
+      <span class="w-2 h-2 rounded-full bg-[color:var(--yellow)]"></span>
+      <p id="fonte-dados-label" class="font-mono text-[11px] md:text-xs text-[color:var(--ink-dim)] text-center">
+        Fonte de dados: XML local / Mock de demonstração
+      </p>
+    </div>
+
+    <!-- Demo: pedidos mock disponíveis -->
+    <div class="mt-8">
+      <p class="font-stencil uppercase text-xs tracking-[0.25em] text-[color:var(--ink-dim)] mb-3">Pedidos de demonstração (banco mock)</p>
+      <div id="mock-chips" class="flex flex-wrap gap-2"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ============ TELA 2 — CONFERÊNCIA DO PEDIDO ============ -->
+<main id="screen-order" class="hidden min-h-[calc(100vh-8px)] pb-16">
+
+  <!-- Header fixo de status -->
+  <div class="sticky top-0 z-20 bg-[color:var(--bg-panel)] border-b-2 border-[color:var(--line)] shadow-lg">
+    <div class="max-w-4xl mx-auto px-4 py-4 md:py-5">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p class="font-stencil uppercase tracking-[0.25em] text-[10px] md:text-xs text-[color:var(--yellow)]">Pedido</p>
+          <h2 id="order-title" class="font-display text-xl md:text-3xl leading-none mt-1">—</h2>
+          <p id="order-sub" class="text-[color:var(--ink-dim)] text-xs md:text-sm mt-1 font-mono"></p>
+        </div>
+        <button id="btn-novo-scan" class="shrink-0 font-stencil uppercase tracking-wider text-xs md:text-sm border-2 border-[color:var(--line)] rounded-lg px-3 py-2 hover:border-[color:var(--yellow)] transition">
+          ← Novo Scan
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between mb-2">
+        <span id="progress-label" class="font-stencil uppercase text-sm md:text-base tracking-wide">Conferido 0 de 0 itens</span>
+        <span id="progress-pct" class="font-mono text-sm text-[color:var(--ink-dim)]">0%</span>
+      </div>
+      <div class="progress-track h-3 rounded-full overflow-hidden border border-[color:var(--line)]">
+        <div id="progress-fill" class="progress-fill h-full bg-[color:var(--green)]" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Banner de conclusão -->
+  <div id="banner-complete" class="hidden max-w-4xl mx-auto mt-6 px-4">
+    <div class="banner-complete bg-[color:var(--green)] text-[#0b1f10] rounded-2xl px-6 py-6 md:py-8 text-center shadow-2xl">
+      <p class="font-display text-2xl md:text-4xl tracking-wide">✔ PEDIDO CONCLUÍDO</p>
+      <p class="font-stencil mt-2 text-sm md:text-base">Todos os itens foram conferidos e embalados</p>
+    </div>
+  </div>
+
+  <!-- Lista de itens -->
+  <div class="max-w-4xl mx-auto px-4 mt-6">
+    <div id="items-list" class="flex flex-col gap-3"></div>
+  </div>
+</main>
+
+<!-- ============ OVERLAY DE CARREGAMENTO ============ -->
+<div id="loading-overlay" class="hidden fixed inset-0 z-[60] flex flex-col items-center justify-center gap-5 px-6">
+  <div class="spinner"></div>
+  <p class="font-stencil uppercase tracking-widest text-lg md:text-xl text-center">Buscando nota no WTTI…</p>
+  <p class="font-mono text-xs text-[color:var(--ink-dim)] text-center max-w-xs">Isso pode levar alguns segundos — o sistema está consultando a tela do WTTI em segundo plano.</p>
+</div>
+
+<!-- ============ MODAL — SCANNER DE CÂMERA ============ -->
+<div id="camera-modal" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center px-4">
+  <div class="w-full max-w-md">
+    <div class="flex items-center justify-between mb-3">
+      <p class="font-stencil uppercase tracking-widest text-sm text-[color:var(--yellow)]">Aponte para o código de barras da DANFE</p>
+      <button id="btn-fechar-camera" class="text-[color:var(--ink)] text-2xl leading-none px-2">✕</button>
+    </div>
+    <div class="relative">
+      <div id="camera-reader"></div>
+      <div class="scan-frame-hint"></div>
+    </div>
+    <p id="camera-status" class="font-mono text-xs text-[color:var(--ink-dim)] mt-3 text-center min-h-[1.2em]"></p>
+  </div>
+</div>
+
+<!-- ============ MODAL — FOTO DO PRODUTO ============ -->
+<div id="imagem-modal" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center px-4">
+  <div class="w-full max-w-md">
+    <div class="flex items-center justify-between mb-3">
+      <p id="imagem-modal-titulo" class="font-stencil uppercase tracking-widest text-sm text-[color:var(--yellow)] truncate pr-3"></p>
+      <button id="btn-fechar-imagem" class="shrink-0 text-[color:var(--ink)] text-2xl leading-none px-2">✕</button>
+    </div>
+    <div id="imagem-modal-corpo" class="bg-[color:var(--bg-panel)] border-2 border-[color:var(--line)] rounded-2xl p-4 min-h-[200px] flex flex-col items-center justify-center gap-3">
+      <div class="spinner"></div>
+      <p class="font-mono text-xs text-[color:var(--ink-dim)]">Buscando foto no WTTI…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  // ---------------------------------------------------------------
+  // 0) CONFIGURAÇÃO DE INTEGRAÇÃO
+  // ---------------------------------------------------------------
+  // Troque MODO para 'api' quando o backend/endpoint estiver disponível.
+  // Enquanto MODO for 'xml-mock', o app resolve tudo com os XMLs
+  // carregados na sessão + os pedidos de demonstração abaixo.
+  const CONFIG = {
+    MODO: 'api', // 'xml-mock' | 'api'
+    API_BASE_URL: `${window.location.origin}/api`, // usa automaticamente o mesmo host:porta de onde a página foi aberta
+  };
+
+  // ---------------------------------------------------------------
+  // 1) BANCO MOCK — simula o ERP / API da SEFAZ indisponível localmente
+  // ---------------------------------------------------------------
+  const mockOrders = [
+    {
+      chave: "35240112345678000199550010000012341123456789",
+      nNF: "1234",
+      cliente: "Distribuidora Vale do Aço Ltda",
+      itens: [
+        { produto: "Óleo Lubrificante 20W50 Mineral", qtd: 24, unidade: "UN" },
+        { produto: "Filtro de Óleo FO-118", qtd: 12, unidade: "UN" },
+        { produto: "Aditivo Radiador Concentrado 1L", qtd: 6, unidade: "UN" },
+        { produto: "Graxa de Rolamento Multiuso 500g", qtd: 8, unidade: "UN" },
+      ]
+    },
+    {
+      chave: "35240298765432000188550010000056781987654321",
+      nNF: "5678",
+      cliente: "Auto Peças Joinville",
+      itens: [
+        { produto: "Óleo Sintético 5W30 API SN", qtd: 40, unidade: "UN" },
+        { produto: "Fluido de Freio DOT4 500ml", qtd: 15, unidade: "UN" },
+        { produto: "Correia Dentada Kit Distribuição", qtd: 3, unidade: "KIT" },
+      ]
+    },
+    {
+      chave: "35240355555555000177550010000099991122334455",
+      nNF: "9999",
+      cliente: "Comércio de Peças Sul S.A.",
+      itens: [
+        { produto: "Amortecedor Dianteiro Direito", qtd: 2, unidade: "UN" },
+        { produto: "Amortecedor Dianteiro Esquerdo", qtd: 2, unidade: "UN" },
+        { produto: "Kit Coxim Superior", qtd: 2, unidade: "KIT" },
+        { produto: "Óleo de Direção Hidráulica 1L", qtd: 4, unidade: "UN" },
+        { produto: "Palheta Limpador de Para-brisa 22\"", qtd: 6, unidade: "UN" },
+      ]
+    }
+  ];
+
+  // Índice de busca: chave (44 dig) -> pedido, e nNF -> pedido
+  const ordersIndex = {};
+  function registerOrder(order){
+    ordersIndex[order.chave] = order;
+    ordersIndex[String(parseInt(order.nNF,10))] = order; // normaliza sem zeros à esquerda
+    ordersIndex[order.nNF] = order;
+  }
+  mockOrders.forEach(registerOrder);
+
+  // ---------------------------------------------------------------
+  // 2) ESTADO
+  // ---------------------------------------------------------------
+  let currentOrder = null;
+  let checkedState = [];
+
+  // ---------------------------------------------------------------
+  // 3) ELEMENTOS
+  // ---------------------------------------------------------------
+  const screenHome = document.getElementById('screen-home');
+  const screenOrder = document.getElementById('screen-order');
+  const scanInput = document.getElementById('scan-input');
+  const scanError = document.getElementById('scan-error');
+  const chaveInfo = document.getElementById('chave-info');
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const btnBuscar = document.getElementById('btn-buscar');
+  const btnNovoScan = document.getElementById('btn-novo-scan');
+  const mockChips = document.getElementById('mock-chips');
+
+  const dropZone = document.getElementById('drop-zone');
+  const xmlInput = document.getElementById('xml-input');
+  const xmlStatus = document.getElementById('xml-status');
+  const pastaStatus = document.getElementById('pasta-status');
+  const fonteDadosLabel = document.getElementById('fonte-dados-label');
+
+  const btnAbrirCamera = document.getElementById('btn-abrir-camera');
+  const btnFecharCamera = document.getElementById('btn-fechar-camera');
+  const btnSelecionarPasta = document.getElementById('btn-selecionar-pasta');
+  const cameraModal = document.getElementById('camera-modal');
+  const cameraStatus = document.getElementById('camera-status');
+
+  const imagemModal = document.getElementById('imagem-modal');
+  const imagemModalTitulo = document.getElementById('imagem-modal-titulo');
+  const imagemModalCorpo = document.getElementById('imagem-modal-corpo');
+  const btnFecharImagem = document.getElementById('btn-fechar-imagem');
+
+  const orderTitle = document.getElementById('order-title');
+  const orderSub = document.getElementById('order-sub');
+  const progressLabel = document.getElementById('progress-label');
+  const progressPct = document.getElementById('progress-pct');
+  const progressFill = document.getElementById('progress-fill');
+  const bannerComplete = document.getElementById('banner-complete');
+  const itemsList = document.getElementById('items-list');
+
+  // ---------------------------------------------------------------
+  // 4) CHIPS DE DEMONSTRAÇÃO
+  // ---------------------------------------------------------------
+  mockOrders.forEach(o => {
+    const chip = document.createElement('button');
+    chip.className = "font-mono text-xs md:text-sm bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-full px-4 py-2 hover:border-[color:var(--yellow)] transition text-[color:var(--ink-dim)]";
+    chip.innerHTML = `NF <span class="text-[color:var(--ink)] font-semibold">${o.nNF}</span> · ${o.cliente.split(' ')[0]}…`;
+    chip.addEventListener('click', () => {
+      scanInput.value = o.chave;
+      buscarPedido(o.chave);
+    });
+    mockChips.appendChild(chip);
+  });
+
+  // ---------------------------------------------------------------
+  // 4.1) DECODIFICADOR DA CHAVE DE ACESSO (44 DÍGITOS)
+  // ---------------------------------------------------------------
+  // A chave NÃO contém itens/produtos — só metadados de identificação
+  // da nota. Serve para validar o que foi lido e ajudar o operador a
+  // confirmar visualmente que escaneou a nota certa, mesmo quando o
+  // pedido ainda não foi carregado (via XML ou API) no app.
+  //
+  // Layout oficial (44 posições):
+  // cUF(2) + AAMM(4) + CNPJ(14) + mod(2) + série(3) + nNF(9) + tpEmis(1) + cNF(8) + cDV(1)
+  const UF_POR_CODIGO = {
+    '11':'RO','12':'AC','13':'AM','14':'RR','15':'PA','16':'AP','17':'TO',
+    '21':'MA','22':'PI','23':'CE','24':'RN','25':'PB','26':'PE','27':'AL','28':'SE','29':'BA',
+    '31':'MG','32':'ES','33':'RJ','35':'SP',
+    '41':'PR','42':'SC','43':'RS',
+    '50':'MS','51':'MT','52':'GO','53':'DF'
+  };
+
+  function decodificarChaveNFe(chave){
+    if (!/^\d{44}$/.test(chave)) return null;
+
+    const cUF    = chave.slice(0, 2);
+    const aamm   = chave.slice(2, 6);
+    const cnpj   = chave.slice(6, 20);
+    const modelo = chave.slice(20, 22);
+    const serie  = chave.slice(22, 25);
+    const nNF    = chave.slice(25, 34);
+    const tpEmis = chave.slice(34, 35);
+    const dvInformado = chave.slice(43, 44);
+
+    // Validação do dígito verificador (módulo 11)
+    let soma = 0, peso = 2;
+    for (let i = 42; i >= 0; i--){
+      soma += parseInt(chave[i], 10) * peso;
+      peso = peso === 9 ? 2 : peso + 1;
+    }
+    const resto = soma % 11;
+    const dvCalculado = (resto === 0 || resto === 1) ? 0 : 11 - resto;
+    const dvValido = dvCalculado === parseInt(dvInformado, 10);
+
+    return {
+      uf: UF_POR_CODIGO[cUF] || `cód. ${cUF}`,
+      mesAno: `${aamm.slice(2,4)}/20${aamm.slice(0,2)}`,
+      cnpj: cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5'),
+      modelo,
+      serie: parseInt(serie, 10),
+      numeroNF: parseInt(nNF, 10),
+      tipoEmissao: tpEmis,
+      dvValido
+    };
+  }
+
+  function exibirInfoChave(chave){
+    const info = decodificarChaveNFe(chave);
+    if (!info){
+      chaveInfo.classList.add('hidden');
+      return;
+    }
+
+    const avisoDv = info.dvValido
+      ? '<span class="text-[color:var(--green)]">✓ dígito verificador válido</span>'
+      : '<span class="text-[color:var(--red)]">⚠ dígito verificador inválido — confira a leitura</span>';
+
+    chaveInfo.innerHTML = `
+      <p class="uppercase tracking-widest text-[10px] mb-2 text-[color:var(--yellow)]">Lido a partir da chave (sem itens ainda)</p>
+      <p>NF nº <strong class="text-[color:var(--ink)]">${info.numeroNF}</strong> · Série ${info.serie} · UF ${info.uf}</p>
+      <p>Emitente CNPJ ${info.cnpj} · Competência ${info.mesAno}</p>
+      <p class="mt-1">${avisoDv}</p>
+    `;
+    chaveInfo.classList.remove('hidden');
+  }
+
+  // ---------------------------------------------------------------
+  // 5) BUSCA DO PEDIDO (por chave de 44 dígitos ou número da NF)
+  // ---------------------------------------------------------------
+  function limparEntrada(valor){
+    return (valor || '').trim().replace(/\s+/g, '');
+  }
+
+  async function buscarPedido(valorBruto){
+    const valor = limparEntrada(valorBruto);
+    scanError.classList.add('hidden');
+    scanError.textContent = '';
+    chaveInfo.classList.add('hidden');
+
+    if (!valor){
+      mostrarErro("Digite ou escaneie um código antes de buscar.");
+      return;
+    }
+
+    let pedido = ordersIndex[valor];
+
+    // tenta normalizar número de NF sem zeros à esquerda
+    if (!pedido && /^\d+$/.test(valor)){
+      pedido = ordersIndex[String(parseInt(valor, 10))];
+    }
+
+    // Fallback: se não achou localmente e o modo API estiver ativo, consulta o backend
+    let apiFalhou = false;
+    if (!pedido && CONFIG.MODO === 'api'){
+      mostrarBuscando(true);
+      pedido = await buscarPedidoAPI(valor);
+      apiFalhou = !pedido;
+      mostrarBuscando(false);
+    }
+
+    if (!pedido){
+      // Se a API já mostrou o erro específico (falha de rede, resposta
+      // malformada), não sobrescreve com a mensagem genérica de "não
+      // encontrado" — isso escondia o erro real na hora de debugar.
+      if (!apiFalhou || !scanError.textContent){
+        const tipo = valor.length === 44 ? "chave de acesso" : "número de NF";
+        mostrarErro(`Nenhum pedido encontrado para essa ${tipo}: ${valor}. Envie o XML correspondente ou configure a integração via API.`);
+      }
+      if (valor.length === 44) exibirInfoChave(valor);
+      return;
+    }
+
+    abrirPedido(pedido);
+  }
+
+  function mostrarBuscando(ativo){
+    btnBuscar.disabled = ativo;
+    loadingOverlay.classList.toggle('hidden', !ativo);
+  }
+
+  // ---------------------------------------------------------------
+  // 5.1) OPÇÃO B — INTEGRAÇÃO VIA API/BANCO REAL (fetch pronto para uso)
+  // ---------------------------------------------------------------
+  // Contrato esperado do endpoint (adaptar no backend):
+  //   GET {API_BASE_URL}/notas/{codigo}
+  //   onde {codigo} é a chave de 44 dígitos OU o número da NF.
+  //
+  //   Resposta 200 (JSON):
+  //   {
+  //     "chave": "35240112345678000199550010000012341123456789",
+  //     "nNF": "1234",
+  //     "cliente": "Nome do Cliente",
+  //     "itens": [
+  //       { "produto": "Nome do produto", "qtd": 10, "unidade": "UN" }
+  //     ]
+  //   }
+  //   Resposta 404: pedido não encontrado -> a função retorna null.
+  async function buscarPedidoAPI(codigo){
+    try {
+      const resp = await fetch(`${CONFIG.API_BASE_URL}/notas/${encodeURIComponent(codigo)}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          // 'Authorization': `Bearer ${SEU_TOKEN_AQUI}`, // se o backend exigir autenticação
+        }
+      });
+
+      if (resp.status === 404) return null;
+      if (!resp.ok) throw new Error(`API respondeu ${resp.status}`);
+
+      const dados = await resp.json();
+
+      // "chave" vem vazia de propósito quando a busca foi feita pelo número
+      // curto da NF (não dá pra derivar a chave de 44 dígitos só com isso)
+      // — por isso não pode ser exigida aqui, só nNF ou itens.
+      if (!dados || (!dados.chave && !dados.nNF) || !Array.isArray(dados.itens)){
+        throw new Error("Formato de resposta inesperado da API");
+      }
+
+      registerOrder(dados);
+      return dados;
+
+    } catch (e){
+      console.error('Erro ao consultar API de notas:', e);
+      mostrarErro(`Falha ao consultar o servidor: ${e.message}`);
+      return null;
+    }
+  }
+
+  function mostrarErro(msg){
+    scanError.textContent = msg;
+    scanError.classList.remove('hidden');
+    scanInput.classList.add('shake');
+    setTimeout(() => scanInput.classList.remove('shake'), 400);
+  }
+
+  // ---------------------------------------------------------------
+  // 6) TELA DE CONFERÊNCIA
+  // ---------------------------------------------------------------
+  function abrirPedido(pedido){
+    currentOrder = pedido;
+    checkedState = new Array(pedido.itens.length).fill(false);
+
+    orderTitle.textContent = `NF Nº ${pedido.nNF}`;
+    orderSub.textContent = `${pedido.cliente}  ·  Chave: ${pedido.chave}`;
+
+    renderItems();
+    atualizarProgresso();
+
+    screenHome.classList.add('hidden');
+    screenOrder.classList.remove('hidden');
+    window.scrollTo(0,0);
+  }
+
+  function renderItems(){
+    itemsList.innerHTML = '';
+    currentOrder.itens.forEach((item, idx) => {
+      const card = document.createElement('div');
+      card.className = "item-card cursor-pointer select-none bg-[color:var(--bg-card)] border-2 border-[color:var(--line)] rounded-2xl px-4 md:px-6 py-4 md:py-5 flex items-center justify-between gap-4";
+      card.dataset.idx = idx;
+
+      card.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <p class="font-stencil font-semibold text-[18px] md:text-[20px] leading-snug break-words">${item.produto}</p>
+          <p class="font-display text-[32px] md:text-[40px] leading-none mt-2 tracking-wide">
+            ${item.qtd} <span class="font-stencil text-lg md:text-2xl align-middle text-[color:var(--ink-dim)]">${item.unidade}</span>
+          </p>
+          ${item.codigo ? `
+          <button type="button" class="btn-ver-foto btn-secondary mt-3 inline-flex items-center gap-2 border-2 border-[color:var(--line)] rounded-lg px-3 py-1.5 text-xs md:text-sm font-semibold text-[color:var(--ink)]">
+            📷 Ver foto
+          </button>` : ''}
+        </div>
+        <div class="shrink-0 flex flex-col items-center gap-2">
+          <div class="checkbox-shell w-14 h-14 md:w-16 md:h-16 rounded-xl border-4 border-[color:var(--line)] flex items-center justify-center bg-[#10131a]">
+            <svg class="check-icon hidden w-8 h-8 md:w-9 md:h-9 text-[color:var(--green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+          </div>
+          <span class="stamp text-[color:var(--green)] text-[10px] md:text-xs px-2 py-0.5">OK</span>
+        </div>
+      `;
+
+      card.addEventListener('click', () => toggleItem(idx));
+
+      const btnVerFoto = card.querySelector('.btn-ver-foto');
+      if (btnVerFoto){
+        btnVerFoto.addEventListener('click', (e) => {
+          e.stopPropagation();
+          abrirImagemProduto(item.codigo, item.produto);
+        });
+      }
+
+      itemsList.appendChild(card);
+    });
+  }
+
+  function toggleItem(idx){
+    checkedState[idx] = !checkedState[idx];
+    const card = itemsList.querySelector(`[data-idx="${idx}"]`);
+    const checkIcon = card.querySelector('.check-icon');
+    const shell = card.querySelector('.checkbox-shell');
+
+    if (checkedState[idx]){
+      card.classList.add('done');
+      checkIcon.classList.remove('hidden');
+      shell.style.borderColor = 'var(--green)';
+      shell.style.backgroundColor = 'rgba(23,165,74,0.12)';
+    } else {
+      card.classList.remove('done');
+      checkIcon.classList.add('hidden');
+      shell.style.borderColor = '';
+      shell.style.backgroundColor = '';
+    }
+    atualizarProgresso();
+  }
+
+  function atualizarProgresso(){
+    const total = checkedState.length;
+    const feitos = checkedState.filter(Boolean).length;
+    const pct = total === 0 ? 0 : Math.round((feitos/total) * 100);
+
+    progressLabel.textContent = `Conferido ${feitos} de ${total} itens`;
+    progressPct.textContent = `${pct}%`;
+    progressFill.style.width = `${pct}%`;
+
+    if (total > 0 && feitos === total){
+      bannerComplete.classList.remove('hidden');
+    } else {
+      bannerComplete.classList.add('hidden');
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // 6.1) FOTO DO PRODUTO (buscada sob demanda no WTTI)
+  // ---------------------------------------------------------------
+  async function abrirImagemProduto(codigoProduto, nomeProduto){
+    imagemModalTitulo.textContent = nomeProduto || `Produto ${codigoProduto}`;
+    imagemModalCorpo.innerHTML = `
+      <div class="spinner"></div>
+      <p class="font-mono text-xs text-[color:var(--ink-dim)]">Buscando foto no WTTI…</p>
+    `;
+    imagemModal.classList.remove('hidden');
+
+    if (CONFIG.MODO !== 'api'){
+      imagemModalCorpo.innerHTML = `<p class="text-sm text-[color:var(--ink-dim)] text-center">Foto só disponível com a integração via API ativa.</p>`;
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${CONFIG.API_BASE_URL}/produtos/${encodeURIComponent(codigoProduto)}/imagens`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!resp.ok) throw new Error(`API respondeu ${resp.status}`);
+      const dados = await resp.json();
+      const imagens = Array.isArray(dados.imagens) ? dados.imagens : [];
+
+      if (imagens.length === 0){
+        imagemModalCorpo.innerHTML = `<p class="text-sm text-[color:var(--ink-dim)] text-center">Esse produto não tem foto cadastrada no WTTI.</p>`;
+        return;
+      }
+
+      imagemModalCorpo.innerHTML = imagens.map(url => `
+        <img src="${url}" class="w-full rounded-xl border border-[color:var(--line)]" loading="lazy">
+      `).join('');
+
+    } catch (e){
+      console.error('Erro ao buscar imagens do produto:', e);
+      imagemModalCorpo.innerHTML = `<p class="text-sm text-[color:var(--red)] text-center">Falha ao buscar a foto: ${e.message}</p>`;
+    }
+  }
+
+  function fecharImagemProduto(){
+    imagemModal.classList.add('hidden');
+  }
+
+  btnFecharImagem.addEventListener('click', fecharImagemProduto);
+  imagemModal.addEventListener('click', (e) => {
+    if (e.target === imagemModal) fecharImagemProduto();
+  });
+
+  // ---------------------------------------------------------------
+  // 7) LEITURA DE XML DA NF-e (upload / drag-and-drop)
+  // ---------------------------------------------------------------
+  function parseNFeXml(xmlText, filename){
+    try {
+      const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+
+      const parserError = xml.querySelector('parsererror');
+      if (parserError) throw new Error("XML inválido");
+
+      const infNFe = xml.querySelector('infNFe') || xml.querySelector('*|infNFe');
+      if (!infNFe) throw new Error("Estrutura de NF-e não encontrada");
+
+      let chave = (infNFe.getAttribute('Id') || '').replace(/^NFe/i, '');
+      if (!chave){
+        const chNFeNode = xml.querySelector('chNFe');
+        chave = chNFeNode ? chNFeNode.textContent.trim() : '';
+      }
+
+      const nNFNode = xml.querySelector('ide > nNF');
+      const nNF = nNFNode ? nNFNode.textContent.trim() : '';
+
+      const destNode = xml.querySelector('dest > xNome');
+      const cliente = destNode ? destNode.textContent.trim() : 'Cliente não identificado';
+
+      const detNodes = xml.querySelectorAll('det');
+      const itens = [];
+      detNodes.forEach(det => {
+        const prod = det.querySelector('prod');
+        if (!prod) return;
+        const xProd = prod.querySelector('xProd');
+        const qCom = prod.querySelector('qCom');
+        const uCom = prod.querySelector('uCom');
+        itens.push({
+          produto: xProd ? xProd.textContent.trim() : 'Produto sem descrição',
+          qtd: qCom ? Math.round(parseFloat(qCom.textContent) * 100) / 100 : 0,
+          unidade: uCom ? uCom.textContent.trim().toUpperCase() : 'UN'
+        });
+      });
+
+      if (!chave || itens.length === 0) throw new Error("Não foi possível extrair itens do XML");
+
+      const pedido = { chave, nNF: nNF || chave.slice(-9), cliente, itens };
+      registerOrder(pedido);
+      return pedido;
+
+    } catch (e){
+      console.error(`Erro ao processar ${filename}:`, e);
+      return null;
+    }
+  }
+
+  function processarArquivos(fileList){
+    const files = Array.from(fileList).filter(f => f.name.toLowerCase().endsWith('.xml'));
+    if (files.length === 0){
+      xmlStatus.textContent = "Nenhum arquivo .xml válido selecionado.";
+      return;
+    }
+
+    let carregados = 0;
+    let ultimoPedido = null;
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const pedido = parseNFeXml(e.target.result, file.name);
+        if (pedido){
+          carregados++;
+          ultimoPedido = pedido;
+
+          const chip = document.createElement('button');
+          chip.className = "font-mono text-xs md:text-sm bg-[color:var(--bg-card)] border border-[color:var(--yellow)] rounded-full px-4 py-2 hover:brightness-110 transition text-[color:var(--ink)]";
+          chip.innerHTML = `NF <span class="font-semibold">${pedido.nNF}</span> · XML carregado`;
+          chip.addEventListener('click', () => {
+            scanInput.value = pedido.chave;
+            buscarPedido(pedido.chave);
+          });
+          mockChips.prepend(chip);
+        }
+        xmlStatus.textContent = `${carregados} de ${files.length} XML(s) carregado(s) com sucesso.`;
+
+        // Se só havia 1 arquivo, abre o pedido direto
+        if (files.length === 1 && ultimoPedido){
+          scanInput.value = ultimoPedido.chave;
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    });
+  }
+
+  dropZone.addEventListener('click', () => xmlInput.click());
+  xmlInput.addEventListener('change', (e) => processarArquivos(e.target.files));
+
+  ['dragenter','dragover'].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+  });
+  ['dragleave','drop'].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+    });
+  });
+  dropZone.addEventListener('drop', (e) => {
+    processarArquivos(e.dataTransfer.files);
+  });
+
+  // ---------------------------------------------------------------
+  // 8) EVENTOS DE ENTRADA — leitor físico dispara Enter automaticamente
+  // ---------------------------------------------------------------
+  scanInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter'){
+      e.preventDefault();
+      buscarPedido(scanInput.value);
+    }
+  });
+  btnBuscar.addEventListener('click', () => buscarPedido(scanInput.value));
+
+  btnNovoScan.addEventListener('click', () => {
+    screenOrder.classList.add('hidden');
+    screenHome.classList.remove('hidden');
+    scanInput.value = '';
+    scanError.classList.add('hidden');
+    scanInput.focus();
+  });
+
+  // ---------------------------------------------------------------
+  // 9) SCANNER VIA CÂMERA (leitor de código de barras da DANFE)
+  // ---------------------------------------------------------------
+  let html5QrCode = null;
+  let cameraAtiva = false;
+
+  function beep(){
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 1200;
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.18);
+    } catch (e){ /* ambiente sem suporte a Web Audio: ignora silenciosamente */ }
+  }
+
+  async function abrirCamera(){
+    if (typeof Html5Qrcode === 'undefined'){
+      cameraStatus.textContent = "Biblioteca de leitura não carregou. Verifique a conexão com a internet.";
+      cameraModal.classList.remove('hidden');
+      return;
+    }
+
+    cameraModal.classList.remove('hidden');
+    cameraStatus.textContent = "Iniciando câmera…";
+
+    html5QrCode = new Html5Qrcode("camera-reader", {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.QR_CODE,
+      ],
+      verbose: false,
+    });
+
+    const config = { fps: 12, qrbox: { width: 260, height: 160 } };
+
+    try {
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        onLeituraSucesso,
+        () => { /* frame sem leitura: ignora, tenta o próximo */ }
+      );
+      cameraAtiva = true;
+      cameraStatus.textContent = "Aponte a câmera para o código de barras da DANFE.";
+    } catch (err){
+      console.error('Erro ao iniciar câmera:', err);
+      cameraStatus.textContent = "Não foi possível acessar a câmera. Verifique as permissões do navegador.";
+    }
+  }
+
+  async function fecharCamera(){
+    if (html5QrCode && cameraAtiva){
+      try { await html5QrCode.stop(); await html5QrCode.clear(); }
+      catch (e){ /* já parado */ }
+    }
+    cameraAtiva = false;
+    cameraModal.classList.add('hidden');
+  }
+
+  function onLeituraSucesso(textoDecodificado){
+    // Prioriza uma sequência de 44 dígitos (chave de acesso) dentro do texto lido
+    const somenteDigitos = textoDecodificado.replace(/\D/g, '');
+    const valorFinal = somenteDigitos.length >= 44
+      ? somenteDigitos.slice(0, 44)
+      : textoDecodificado.trim();
+
+    beep();
+    scanInput.value = valorFinal;
+    fecharCamera().then(() => buscarPedido(valorFinal));
+  }
+
+  btnAbrirCamera.addEventListener('click', abrirCamera);
+  btnFecharCamera.addEventListener('click', fecharCamera);
+
+  // ---------------------------------------------------------------
+  // 10) OPÇÃO A (AVANÇADA) — LEITURA AUTOMÁTICA DE PASTA LOCAL
+  // ---------------------------------------------------------------
+  // Usa a File System Access API para ler todos os XMLs de uma pasta
+  // (ex: pasta de exportação do ERP) sem precisar selecionar arquivo a arquivo.
+  // Suporte: Chrome/Edge desktop. Não disponível em Firefox, Safari ou celular
+  // — nesses casos, use o upload/drag-and-drop normal ou a Opção B (API).
+  if ('showDirectoryPicker' in window){
+    btnSelecionarPasta.addEventListener('click', async () => {
+      try {
+        const dirHandle = await window.showDirectoryPicker();
+        pastaStatus.textContent = "Lendo XMLs da pasta…";
+
+        let count = 0;
+        for await (const entry of dirHandle.values()){
+          if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.xml')){
+            const file = await entry.getFile();
+            const texto = await file.text();
+            const pedido = parseNFeXml(texto, entry.name);
+            if (pedido){
+              count++;
+              const chip = document.createElement('button');
+              chip.className = "font-mono text-xs md:text-sm bg-[color:var(--bg-card)] border border-[color:var(--yellow)] rounded-full px-4 py-2 hover:brightness-110 transition text-[color:var(--ink)]";
+              chip.innerHTML = `NF <span class="font-semibold">${pedido.nNF}</span> · pasta local`;
+              chip.addEventListener('click', () => {
+                scanInput.value = pedido.chave;
+                buscarPedido(pedido.chave);
+              });
+              mockChips.prepend(chip);
+            }
+          }
+        }
+        pastaStatus.textContent = `${count} nota(s) carregada(s) da pasta selecionada.`;
+      } catch (e){
+        // usuário cancelou a seleção ou permissão negada
+        if (e.name !== 'AbortError'){
+          pastaStatus.textContent = "Não foi possível ler a pasta selecionada.";
+          console.error(e);
+        }
+      }
+    });
+  } else {
+    btnSelecionarPasta.addEventListener('click', () => {
+      pastaStatus.textContent = "Este navegador não suporta leitura direta de pastas. Use o upload de XML acima ou a integração via API.";
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // 11) INDICADOR DA FONTE DE DADOS ATIVA
+  // ---------------------------------------------------------------
+  fonteDadosLabel.textContent = CONFIG.MODO === 'api'
+    ? `Fonte de dados: WTTI (via servidor) + XML/Mock local`
+    : "Fonte de dados: XML local / Mock de demonstração";
+
+  // Autofocus garantido mesmo se o navegador ignorar o atributo
+  window.addEventListener('load', () => scanInput.focus());
+
+})();
+</script>
+
+</body>
+</html>
