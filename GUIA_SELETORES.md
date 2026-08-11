@@ -3,10 +3,12 @@
 > **Status (2026-08-11):** login, busca de nota (Passos 1-6) e a sidebar
 > de reposição via Relatório Produto x Saldo (Passo 7) validados de
 > ponta a ponta contra o WTTI real, incluindo paginação. O Estoque
-> Mínimo (também Passo 7, lido de `CadastroProduto.aspx`) foi só testado
-> isoladamente com dados simulados — ainda não rodou contra o WTTI de
-> verdade. Este guia continua valendo como referência pra quando o WTTI
-> mudar de layout no futuro e algum seletor parar de bater.
+> Mínimo (também Passo 7) foi corrigido pra ler do painel
+> `#pnlDetalhesProduto` que aparece na PRÓPRIA tela do Relatório Produto
+> x Saldo (não precisa de navegação extra pra `CadastroProduto.aspx`,
+> como a primeira versão fazia por engano) — ainda aguardando reteste
+> contra o WTTI real. Este guia continua valendo como referência pra
+> quando o WTTI mudar de layout no futuro e algum seletor parar de bater.
 
 Siga esses passos na ordem. Cada um leva 2-5 minutos. Não precisa saber
 programar — é só inspecionar a página e copiar um texto.
@@ -241,10 +243,18 @@ URL: `https://mxcenter.wtti.app/View/Relatorio/RelatorioProdutoSaldo.aspx`
    (compras), e divide cada soma pelo número do mês atual (ex: agosto =
    8) pra chegar numa média mensal de cada um. `Reservas` não entra em
    nenhuma das duas.
-6. Depois disso, o scraper navega pra `View/Cadastro/CadastroProduto.aspx?UID=<codigo>`
-   (a mesma tela já usada pra buscar fotos de produto) e lê o **Estoque
-   Mínimo** cadastrado, no painel `#pnlDetalhesProduto` — usado como piso
-   de segurança na sidebar, com margem editável (ver seção 9 do README).
+6. Nessa MESMA tela (sem navegar pra lugar nenhum) também aparece o
+   painel `#pnlDetalhesProduto`, com o **Estoque Mínimo** cadastrado
+   (`#lblEstoqueProdutoMin`) — usado como piso de segurança na sidebar,
+   com margem editável (ver seção 9 do README).
+
+   **Erro que já aconteceu:** a primeira versão do código navegava pra
+   `View/Cadastro/CadastroProduto.aspx?UID=<codigo>` achando que o
+   mínimo estava lá (é a mesma URL usada pra buscar fotos de produto) —
+   mas essa página é o formulário de EDIÇÃO do cadastro (`<input>`
+   editáveis), não tem `#lblEstoqueProdutoMin` nem `#pnlDetalhesProduto`
+   nenhum. O painel certo já estava na tela do Produto x Saldo o tempo
+   todo, só não tínhamos percebido.
 
 ### Pegadinha da paginação do `#gdwProdutos` ✅ (corrigida em 2026-08-11)
 

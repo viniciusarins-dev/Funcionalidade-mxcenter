@@ -185,10 +185,12 @@ confirmados por inspeção do HTML real e validados de ponta a ponta com
 `testar_reposicao.py` — é um grid comum, sem a complicação de classes
 CSS dinâmicas que o Ranking de Produtos (tela usada antes, já
 substituída) tinha por usar o controle Microsoft ReportViewer. O
-Estoque Mínimo (`SEL_ESTOQUE_MINIMO`) veio da mesma tela já usada pra
-buscar fotos de produto (`CadastroProduto.aspx`), mas ainda só foi
-testado isoladamente com dados simulados, não contra o WTTI real. Veja
-`GUIA_SELETORES.md` (Passo 7) pros detalhes.
+Estoque Mínimo (`SEL_ESTOQUE_MINIMO`) vem do painel `#pnlDetalhesProduto`
+que aparece nessa MESMA tela depois de clicar Selecionar — não precisa
+de navegação extra (uma primeira versão tentou buscar isso em
+`CadastroProduto.aspx` por engano; essa página é só o formulário de
+edição do cadastro, não tem esse painel). Veja `GUIA_SELETORES.md`
+(Passo 7) pros detalhes.
 
 ## 10. Limitações importantes
 

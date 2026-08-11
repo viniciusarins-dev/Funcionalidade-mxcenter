@@ -379,7 +379,10 @@ class WttiScraper:
         else:
             medias = self._calcular_medias_mensais()
 
-        estoque_minimo = self._buscar_estoque_minimo(codigo_produto)
+        # O painel #pnlDetalhesProduto (com o Estoque Mínimo) aparece na
+        # PRÓPRIA tela do Relatório Produto x Saldo depois de clicar
+        # Selecionar — não precisa navegar pra outra página.
+        estoque_minimo = self._ler_estoque_minimo(codigo_produto)
 
         return {
             "produto": descricao,
@@ -389,20 +392,19 @@ class WttiScraper:
             "compra_media_mensal": medias["compra_media_mensal"],
         }
 
-    def _buscar_estoque_minimo(self, codigo_produto):
-        """Busca o Estoque Mínimo cadastrado do produto — mesma tela usada
-        pra buscar fotos (View/Cadastro/CadastroProduto.aspx?UID=<codigo>),
-        painel #pnlDetalhesProduto."""
-        url = f"{config.WTTI_BASE_URL}/View/Cadastro/CadastroProduto.aspx?UID={codigo_produto}"
-        self._driver.get(url)
+    def _ler_estoque_minimo(self, codigo_produto):
+        """Lê o Estoque Mínimo cadastrado do produto, do painel
+        #pnlDetalhesProduto que já está na tela nesse ponto do fluxo
+        (depois de clicar Selecionar no Relatório Produto x Saldo)."""
         try:
             elemento = self._esperar_visivel(config.SEL_ESTOQUE_MINIMO)
         except TimeoutException:
             self._salvar_evidencia_erro(f"estoque_minimo_nao_encontrado_{codigo_produto}")
             logger.warning(
-                "Não encontrei %s em CadastroProduto.aspx pro produto %s — "
-                "estoque mínimo ficou 0.0. Confira SEL_ESTOQUE_MINIMO no .env "
-                "contra o screenshot salvo em debug_screenshots/.",
+                "Não encontrei %s na tela do Relatório Produto x Saldo pro "
+                "produto %s — estoque mínimo ficou 0.0. Confira "
+                "SEL_ESTOQUE_MINIMO no .env contra o screenshot salvo em "
+                "debug_screenshots/.",
                 config.SEL_ESTOQUE_MINIMO, codigo_produto,
             )
             return 0.0
