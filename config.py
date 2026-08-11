@@ -69,14 +69,20 @@ COL_QTD = int(_env("COL_QTD", "2"))
 # div.galleryItem com o atributo data-src apontando pro arquivo.
 SEL_GALERIA_ITEM = _env("SEL_GALERIA_ITEM", ".galeriaImagens .galleryItem")
 
-# --- Relatório Produto x Saldo (estoque atual + saída do mês, com
-# histórico por NF/cliente) — validado em 2026-08-11 (código 571,
-# BATENTE 14MM - CRF250F). Tela: View/Relatorio/RelatorioProdutoSaldo.aspx.
+# --- Relatório Produto x Saldo (estoque atual + médias mensais de
+# saída/compra desde 01/01, com histórico por NF/cliente) — validado em
+# 2026-08-11 (código 571, BATENTE 14MM - CRF250F).
+# Tela: View/Relatorio/RelatorioProdutoSaldo.aspx.
 # Substitui as telas usadas antes (Manutenção de Estoque, que dava número
 # desatualizado, e Ranking de Produtos, que exigia exportar Excel por
 # causa do ReportViewer) por uma única consulta HTML normal (grid comum,
 # sem classes CSS dinâmicas — mais simples e mais confiável).
 WTTI_SALDO_URL = _env("WTTI_SALDO_URL", f"{WTTI_BASE_URL}/View/Relatorio/RelatorioProdutoSaldo.aspx")
+# Data Inicial/Final do relatório — o scraper preenche 01/01 do ano
+# atual até hoje (a tela sozinha só carrega os últimos 3 meses por
+# padrão), pra calcular médias mensais de saída e compra desde janeiro.
+SEL_SALDO_DATA_INICIAL = _env("SEL_SALDO_DATA_INICIAL", "#txtDataI")
+SEL_SALDO_DATA_FINAL = _env("SEL_SALDO_DATA_FINAL", "#txtDataF")
 # Campo "Produto" — digitar o código e sair do campo (Tab) dispara o
 # postback que preenche o grid de resultado abaixo.
 SEL_SALDO_PRODUTO_INPUT = _env("SEL_SALDO_PRODUTO_INPUT", "#txtCodProduto")
@@ -93,10 +99,10 @@ COL_SALDO_CODIGO = int(_env("COL_SALDO_CODIGO", "0"))
 COL_SALDO_DESCRICAO = int(_env("COL_SALDO_DESCRICAO", "1"))
 COL_SALDO_ESTOQUE_SEM_RESERVA = int(_env("COL_SALDO_ESTOQUE_SEM_RESERVA", "4"))
 # Tabela de histórico (#gdwResultado), carregada depois de clicar
-# "Selecionar" na linha do produto certo. A coluna "Mês" só vem
-# preenchida na primeira linha de cada grupo de mês (ver scraper.py).
+# "Selecionar" na linha do produto certo — já filtrada desde 01/01 do
+# ano atual. Soma Qtd por Tipo (Saídas/Entradas) pra calcular médias
+# mensais (ver scraper.py); não precisa da coluna Mês pra isso.
 SEL_SALDO_GRID_RESULTADO = _env("SEL_SALDO_GRID_RESULTADO", "#gdwResultado")
-COL_HISTORICO_MES = int(_env("COL_HISTORICO_MES", "0"))
 COL_HISTORICO_TIPO = int(_env("COL_HISTORICO_TIPO", "3"))
 COL_HISTORICO_QTD = int(_env("COL_HISTORICO_QTD", "6"))
 

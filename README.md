@@ -119,11 +119,18 @@ hospedagem:
 - `GET /api/produtos/<codigo>/imagens` — lista de URLs de imagens do produto
   (galeria da tela de Cadastro de Produtos). Retorna
   `{ "codigo": "1552", "imagens": ["https://mxcenter.wtti.app/Site/000182.jpg"] }`.
-- `GET /api/produtos/<codigo>/reposicao` — descrição, estoque atual e saída
-  do mês (Relatório Produto x Saldo), usado pela sidebar de sugestão de
-  pedido da tela. Retorna:
+- `GET /api/produtos/<codigo>/reposicao` — descrição, estoque atual, e
+  médias mensais de saída (vendas) e compra desde 01/01 do ano atual
+  (Relatório Produto x Saldo), usado pela sidebar de sugestão de pedido
+  da tela. Retorna:
   ```json
-  { "codigo": "1552", "produto": "Nome do produto", "saida_mes": 106.0, "estoque_sistema": 20.0 }
+  {
+    "codigo": "1552",
+    "produto": "Nome do produto",
+    "saida_media_mensal": 106.0,
+    "compra_media_mensal": 40.0,
+    "estoque_sistema": 20.0
+  }
   ```
   O cálculo da quantidade sugerida (e a comparação com o estoque contado à
   mão, pra achar "furos") acontece no front-end, não aqui — veja a seção 9.
@@ -149,27 +156,29 @@ Botão "📦 Reposição" no canto superior direito da tela abre um painel onde
 dá pra digitar o código de um produto. O fluxo é proposital:
 
 1. Digita o código e busca — a API consulta o **Relatório Produto x
-   Saldo** do WTTI (que traz estoque em tempo real + histórico de saída
-   por mês/NF/cliente numa tela só).
+   Saldo** do WTTI desde 01/01 do ano atual até hoje (traz estoque em
+   tempo real + histórico de saída/compra por mês/NF/cliente numa tela
+   só).
 2. Antes de mostrar qualquer número do sistema, a tela **pergunta**:
    "Quantos você tem realmente em estoque?" — o operador digita a
    contagem física, sem ver o número do sistema antes, pra não vender a
    resposta.
 3. Só depois de confirmar é que aparecem:
-   - **Saiu no mês** — soma das saídas (`Tipo = Saídas`) do mês atual no
-     histórico do produto.
+   - **Saída média/mês** — total de saídas (`Tipo = Saídas`) desde 01/01
+     dividido pelo número do mês atual (ex: agosto = ÷8).
+   - **Compra média/mês** — mesma conta, pras linhas `Tipo = Entradas`.
    - **Estoque no sistema** — pra comparar com o que foi contado.
-   - **Furo** — diferença entre os dois, sinalizada em cores.
+   - **Furo** — diferença entre estoque do sistema e o contado, sinalizada
+     em cores.
    - **Meses de cobertura** (editável, padrão 2) e a **sugestão de
-     pedido**: `saída do mês × meses de cobertura − estoque contado`.
+     pedido**: `saída média/mês × meses de cobertura − estoque contado`.
 
 Os seletores do Relatório Produto x Saldo (`SEL_SALDO_*`) foram
-confirmados por inspeção do HTML real — é um grid comum, sem a
-complicação de classes CSS dinâmicas que o Ranking de Produtos (tela
-usada antes, já substituída) tinha por usar o controle Microsoft
-ReportViewer. Veja `GUIA_SELETORES.md` (Passo 7) pros detalhes; a
-execução completa contra o WTTI real ainda precisa ser validada com
-`testar_reposicao.py`.
+confirmados por inspeção do HTML real e validados de ponta a ponta com
+`testar_reposicao.py` — é um grid comum, sem a complicação de classes
+CSS dinâmicas que o Ranking de Produtos (tela usada antes, já
+substituída) tinha por usar o controle Microsoft ReportViewer. Veja
+`GUIA_SELETORES.md` (Passo 7) pros detalhes.
 
 ## 10. Limitações importantes
 
@@ -195,7 +204,7 @@ execução completa contra o WTTI real ainda precisa ser validada com
 ├── config.py                  # todas as configurações via variáveis de ambiente
 ├── testar_login.py            # teste isolado de login no WTTI
 ├── testar_busca.py            # teste isolado de busca de nota no WTTI
-├── testar_reposicao.py        # teste isolado de saída do mês + estoque (sidebar de reposição)
+├── testar_reposicao.py        # teste isolado de estoque + médias mensais de saída/compra (sidebar de reposição)
 ├── static/
 │   └── index.html             # a tela de conferência (bancada), servida em "/"
 ├── GUIA_SELETORES.md          # passo a passo pra achar/reajustar os seletores CSS do WTTI

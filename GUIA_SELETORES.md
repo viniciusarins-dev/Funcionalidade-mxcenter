@@ -216,29 +216,29 @@ URL: `https://mxcenter.wtti.app/View/Relatorio/RelatorioProdutoSaldo.aspx`
 
 ### Como funciona
 
-1. Digita o código no campo **Produto** (`#txtCodProduto`) e sai do campo
+1. Preenche **Data Inicial** (`#txtDataI`) com `01/01/<ano atual>` e
+   **Data Final** (`#txtDataF`) com a data de hoje — a tela sozinha só
+   carrega os últimos 3 meses por padrão, então isso é necessário pra
+   calcular médias desde o início do ano.
+2. Digita o código no campo **Produto** (`#txtCodProduto`) e sai do campo
    (o campo só dispara a busca no evento `onchange`, que só acontece
    quando perde o foco — por isso o scraper manda um Tab depois de
-   preencher, não basta digitar).
-2. Isso preenche o grid `#gdwProdutos` com os produtos cujo código bate
+   preencher, não basta digitar). Esse postback envia o formulário
+   inteiro, incluindo as datas preenchidas no passo 1.
+3. Isso preenche o grid `#gdwProdutos` com os produtos cujo código bate
    (pode vir mais de um parecido, ex: `571` e `1571` juntos — o scraper
    sempre confere o texto **exato** da coluna Código, nunca pega a
    primeira linha).
-3. Nesse mesmo grid já vem a coluna **"Estoque s/ Reservas"** — esse é o
+4. Nesse mesmo grid já vem a coluna **"Estoque s/ Reservas"** — esse é o
    estoque atual usado pela sidebar, direto dali, sem precisar de mais
    nenhum clique.
-4. Clicar em **Selecionar** na linha certa carrega a tabela de histórico
-   `#gdwResultado` (Mês/Dia/NF/Tipo/Interessado/Saldo/Qtd/...) — o
-   scraper soma a coluna `Qtd` das linhas com `Tipo = Saídas` dentro do
-   bloco do mês atual.
-
-### Pegadinha da coluna "Mês"
-
-A coluna Mês só vem preenchida na **primeira linha de cada grupo** —
-nas linhas seguintes do mesmo mês, vem em branco. O scraper guarda o
-último mês visto enquanto percorre as linhas (que vêm em ordem
-cronológica decrescente) e para assim que sai do bloco do mês atual —
-não precisa escanear a tabela inteira.
+5. Clicar em **Selecionar** na linha certa carrega a tabela de histórico
+   `#gdwResultado` (Mês/Dia/NF/Tipo/Interessado/Saldo/Qtd/...), já
+   filtrada desde 01/01 — o scraper soma a coluna `Qtd` de todas as
+   linhas com `Tipo = Saídas` (vendas) e, separadamente, `Tipo = Entradas`
+   (compras), e divide cada soma pelo número do mês atual (ex: agosto =
+   8) pra chegar numa média mensal de cada um. `Reservas` não entra em
+   nenhuma das duas.
 
 ### Pegadinha da paginação do `#gdwProdutos` ✅ (corrigida em 2026-08-11)
 
@@ -265,6 +265,8 @@ esgotar a paginação (limite de segurança: 20 páginas).
 ### Seletores confirmados (por inspeção do HTML real em 2026-08-11)
 
 ```
+SEL_SALDO_DATA_INICIAL=#txtDataI
+SEL_SALDO_DATA_FINAL=#txtDataF
 SEL_SALDO_PRODUTO_INPUT=#txtCodProduto
 SEL_SALDO_GRID_PRODUTOS=#gdwProdutos
 SEL_SALDO_PAGINACAO=#tbPaginacao
@@ -272,15 +274,18 @@ COL_SALDO_CODIGO=0
 COL_SALDO_DESCRICAO=1
 COL_SALDO_ESTOQUE_SEM_RESERVA=4
 SEL_SALDO_GRID_RESULTADO=#gdwResultado
-COL_HISTORICO_MES=0
 COL_HISTORICO_TIPO=3
 COL_HISTORICO_QTD=6
 ```
 
-A lógica de soma por mês foi testada com os dados reais que apareceram
+A lógica de soma por tipo foi testada com os dados reais que apareceram
 na tela pro produto 571 (BATENTE 14MM - CRF250F): 6 linhas "Saídas" em
 Agosto/2026 (5+8+2+6+2+2 = 25) e 1 linha "Reservas" (corretamente
-ignorada) — bate certinho com o algoritmo implementado.
+ignorada) — bate certinho com o algoritmo implementado. Como agora soma
+o ANO INTEIRO (não só um bloco de mês), não precisa mais rastrear a
+coluna Mês nem parar de escanear no meio da tabela — só soma tudo que
+for `Tipo = Saídas` ou `Tipo = Entradas` na tabela inteira e divide pelo
+número do mês atual.
 
 ### Testar
 
@@ -289,10 +294,14 @@ python testar_reposicao.py <codigo_de_um_produto_que_voce_sabe_o_estoque_e_a_sai
 ```
 
 **Validado de ponta a ponta em 2026-08-11** contra o WTTI real: código
-`571` (BATENTE 14MM - CRF250F, estoque 136, saída 25) e código `139`
-funcionaram direto na primeira página. Códigos curtos que precisam de
-paginação (`41`, `45`) só passaram a funcionar depois da correção do
-`SEL_SALDO_PAGINACAO` acima.
+`571` (BATENTE 14MM - CRF250F, estoque 136) e código `139` funcionaram
+direto na primeira página. Códigos curtos que precisam de paginação
+(`41`, `45`) só passaram a funcionar depois da correção do
+`SEL_SALDO_PAGINACAO` acima. Depois disso, mudamos de "saída do mês
+corrente" pra "média mensal desde 01/01" — os números de saída
+reportados nos testes anteriores (25 unidades pro 571, por exemplo) se
+referem à versão antiga (só o mês); não comparáveis diretamente com a
+média atual.
 
 ---
 

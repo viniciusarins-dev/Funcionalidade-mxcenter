@@ -380,14 +380,19 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
-            <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Saiu no mês</p>
+            <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Saída média/mês</p>
             <p id="reposicao-saida-mes" class="font-mono text-2xl mt-1">—</p>
           </div>
           <div class="bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
+            <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Compra média/mês</p>
+            <p id="reposicao-compra-mes" class="font-mono text-2xl mt-1">—</p>
+          </div>
+          <div class="col-span-2 bg-[color:var(--bg-card)] border border-[color:var(--line)] rounded-xl px-3 py-3">
             <p class="font-stencil uppercase text-[10px] tracking-widest text-[color:var(--ink-dim)]">Estoque no sistema</p>
             <p id="reposicao-estoque-sistema" class="font-mono text-2xl mt-1">—</p>
           </div>
         </div>
+        <p class="text-[10px] text-[color:var(--ink-dim)] -mt-2">Médias calculadas desde 01/01 deste ano até hoje.</p>
         <p id="reposicao-furo" class="hidden text-xs font-mono -mt-2"></p>
 
         <div>
@@ -1128,11 +1133,17 @@
   // ---------------------------------------------------------------
   // Contrato esperado do endpoint:
   //   GET {API_BASE_URL}/produtos/{codigo}/reposicao
-  //   Resposta 200: { "codigo": "1552", "produto": "Nome", "saida_mes": 106.0, "estoque_sistema": 20.0 }
+  //   Resposta 200: {
+  //     "codigo": "1552", "produto": "Nome",
+  //     "saida_media_mensal": 106.0, "compra_media_mensal": 40.0,
+  //     "estoque_sistema": 20.0
+  //   }
+  //   (as médias são calculadas desde 01/01 do ano atual até hoje, não
+  //   o mês corrente isolado)
   //
   // Fluxo proposital: depois de buscar o código, a tela PRIMEIRO pergunta
   // quanto o operador tem realmente em estoque (contagem física), antes
-  // de revelar saída do mês, estoque do sistema e a sugestão — assim a
+  // de revelar as médias, o estoque do sistema e a sugestão — assim a
   // resposta não fica enviesada pelo número que o próprio sistema mostra.
   const btnAbrirReposicao = document.getElementById('btn-abrir-reposicao');
   const btnFecharReposicao = document.getElementById('btn-fechar-reposicao');
@@ -1150,13 +1161,14 @@
   const reposicaoPerguntaErro = document.getElementById('reposicao-pergunta-erro');
   const reposicaoDetalhes = document.getElementById('reposicao-detalhes');
   const reposicaoSaidaMesEl = document.getElementById('reposicao-saida-mes');
+  const reposicaoCompraMesEl = document.getElementById('reposicao-compra-mes');
   const reposicaoEstoqueSistemaEl = document.getElementById('reposicao-estoque-sistema');
   const reposicaoFuro = document.getElementById('reposicao-furo');
   const reposicaoMeses = document.getElementById('reposicao-meses');
   const reposicaoSugestaoEl = document.getElementById('reposicao-sugestao');
   const reposicaoSugestaoFormula = document.getElementById('reposicao-sugestao-formula');
 
-  let reposicaoDados = null; // { codigo, produto, saida_mes, estoque_sistema }
+  let reposicaoDados = null; // { codigo, produto, saida_media_mensal, compra_media_mensal, estoque_sistema }
 
   function formatarNumero(n){
     return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
@@ -1242,7 +1254,8 @@
     const estoqueReal = parseFloat(reposicaoEstoqueReal.value);
     if (isNaN(estoqueReal)) return; // ainda não confirmou a pergunta
 
-    reposicaoSaidaMesEl.textContent = formatarNumero(reposicaoDados.saida_mes);
+    reposicaoSaidaMesEl.textContent = formatarNumero(reposicaoDados.saida_media_mensal);
+    reposicaoCompraMesEl.textContent = formatarNumero(reposicaoDados.compra_media_mensal);
     reposicaoEstoqueSistemaEl.textContent = formatarNumero(reposicaoDados.estoque_sistema);
 
     const furo = reposicaoDados.estoque_sistema - estoqueReal;
@@ -1259,7 +1272,7 @@
     reposicaoFuro.classList.remove('hidden');
 
     const meses = parseFloat(reposicaoMeses.value) || 0;
-    const sugestao = (reposicaoDados.saida_mes * meses) - estoqueReal;
+    const sugestao = (reposicaoDados.saida_media_mensal * meses) - estoqueReal;
 
     if (sugestao <= 0){
       reposicaoSugestaoEl.textContent = "0";
@@ -1270,7 +1283,7 @@
     }
 
     reposicaoSugestaoFormula.textContent =
-      `${formatarNumero(reposicaoDados.saida_mes)} × ${formatarNumero(meses)} meses − ${formatarNumero(estoqueReal)} contado`;
+      `${formatarNumero(reposicaoDados.saida_media_mensal)} (média/mês) × ${formatarNumero(meses)} meses − ${formatarNumero(estoqueReal)} contado`;
   }
 
   btnBuscarReposicao.addEventListener('click', buscarReposicao);

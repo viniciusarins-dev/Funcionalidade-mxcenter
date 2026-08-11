@@ -1,11 +1,11 @@
 """
 Teste ISOLADO da sugestão de reposição — assume que o login já está OK
 (testado com testar_login.py) e valida os seletores do Relatório Produto
-x Saldo (estoque atual + saída do mês do produto).
+x Saldo (estoque atual + médias mensais de saída e compra, calculadas
+desde 01/01 do ano atual até hoje).
 
 Seletores confirmados por inspeção do HTML real em 2026-08-11 (ver
-GUIA_SELETORES.md, Passo 7) — mas essa é a primeira execução de ponta a
-ponta desse fluxo contra o WTTI real.
+GUIA_SELETORES.md, Passo 7).
 
 Dica: deixe HEADLESS=false no .env pra ver o Chrome abrindo e identificar
 exatamente onde a busca desvia do esperado.
@@ -43,13 +43,14 @@ try:
     print("\n✅ CONSULTA FUNCIONOU!")
     print(f"Produto: {resultado['produto']}")
     print(f"Estoque no sistema (s/ reservas): {resultado['estoque']}")
-    print(f"Saída no mês atual: {resultado['saida_mes']}")
+    print(f"Saída média/mês (desde 01/01): {resultado['saida_media_mensal']}")
+    print(f"Compra média/mês (desde 01/01): {resultado['compra_media_mensal']}")
     print(
         "\nSe os números batem com o que você vê manualmente no WTTI, os "
         "seletores estão corretos. Se vier estoque errado, confira "
-        "COL_SALDO_CODIGO/COL_SALDO_ESTOQUE_SEM_RESERVA; se a saída do mês "
-        "vier errada, confira COL_HISTORICO_MES/TIPO/QTD (veja "
-        "GUIA_SELETORES.md, Passo 7)."
+        "COL_SALDO_CODIGO/COL_SALDO_ESTOQUE_SEM_RESERVA; se as médias "
+        "vierem erradas, confira COL_HISTORICO_TIPO/QTD e os campos de data "
+        "SEL_SALDO_DATA_INICIAL/FINAL (veja GUIA_SELETORES.md, Passo 7)."
     )
 
 except ProdutoNaoEncontrado as e:

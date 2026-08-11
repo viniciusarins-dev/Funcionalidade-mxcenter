@@ -40,11 +40,6 @@ from selenium.common.exceptions import (
 
 import config
 
-MESES_PT = {
-    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho",
-    7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro",
-}
-
 logger = logging.getLogger("wtti_scraper")
 logging.basicConfig(level=logging.INFO)
 
@@ -333,8 +328,17 @@ class WttiScraper:
     def _buscar_reposicao_produto_interno(self, codigo_produto):
         self._driver.get(config.WTTI_SALDO_URL)
 
+        # A tela sozinha só carrega os últimos 3 meses — preenche desde
+        # 01/01 do ano atual até hoje, pra calcular médias mensais reais.
+        hoje = datetime.date.today()
+        inicio_ano = hoje.replace(month=1, day=1)
+        self._preencher(config.SEL_SALDO_DATA_INICIAL, inicio_ano.strftime("%d/%m/%Y"))
+        self._preencher(config.SEL_SALDO_DATA_FINAL, hoje.strftime("%d/%m/%Y"))
+
         # O campo só dispara o postback no evento onchange (perde o foco),
         # não a cada tecla digitada — precisa de um Tab depois de preencher.
+        # O postback desse campo envia o formulário inteiro, incluindo as
+        # datas preenchidas acima.
         self._preencher(config.SEL_SALDO_PRODUTO_INPUT, codigo_produto)
         campo = self._driver.find_element(By.CSS_SELECTOR, config.SEL_SALDO_PRODUTO_INPUT)
         campo.send_keys(Keys.TAB)
@@ -369,13 +373,18 @@ class WttiScraper:
         try:
             self._esperar_visivel(config.SEL_SALDO_GRID_RESULTADO)
         except TimeoutException:
-            # Produto sem nenhuma movimentação registrada — estoque ainda é
-            # válido, só não tem histórico pra somar saída do mês.
-            saida_mes = 0.0
+            # Produto sem nenhuma movimentação registrada no período —
+            # estoque ainda é válido, só não tem histórico pra calcular médias.
+            medias = {"saida_media_mensal": 0.0, "compra_media_mensal": 0.0}
         else:
-            saida_mes = self._somar_saidas_do_mes()
+            medias = self._calcular_medias_mensais()
 
-        return {"produto": descricao, "estoque": estoque, "saida_mes": saida_mes}
+        return {
+            "produto": descricao,
+            "estoque": estoque,
+            "saida_media_mensal": medias["saida_media_mensal"],
+            "compra_media_mensal": medias["compra_media_mensal"],
+        }
 
     @retry_em_stale()
     def _procurar_linha_produto_com_paginacao(self, codigo_produto):
@@ -432,44 +441,37 @@ class WttiScraper:
         return True
 
     @retry_em_stale()
-    def _somar_saidas_do_mes(self):
-        """Percorre a tabela de histórico (#gdwResultado) somando a coluna
-        Qtd de todas as linhas com Tipo="Saídas" dentro do bloco do mês
-        atual. A coluna "Mês" só vem preenchida na primeira linha de cada
-        grupo de mês (fica em branco nas linhas seguintes do mesmo mês) —
-        por isso guarda o último mês visto enquanto percorre. As linhas
-        vêm em ordem cronológica decrescente, então dá pra parar assim que
-        sair do bloco do mês alvo."""
-        hoje = datetime.date.today()
-        mes_alvo = f"{MESES_PT[hoje.month]} de {hoje.year}"
-
+    def _calcular_medias_mensais(self):
+        """Percorre a tabela de histórico (#gdwResultado, já filtrada desde
+        01/01 do ano atual até hoje) somando a coluna Qtd por Tipo — Saídas
+        (vendas) e Entradas (compras) — e divide pelo número de meses
+        decorridos no ano (contando o mês atual mesmo que parcial) pra
+        chegar numa média mensal de cada um. "Reservas" não entra em
+        nenhuma das duas somas."""
         linhas = self._driver.find_elements(By.CSS_SELECTOR, f"{config.SEL_SALDO_GRID_RESULTADO} tbody tr")
-        mes_linha_atual = None
-        dentro_do_mes_alvo = False
-        total = 0.0
+        total_saidas = 0.0
+        total_entradas = 0.0
 
         for linha in linhas:
             colunas = linha.find_elements(By.TAG_NAME, "td")
-            if len(colunas) <= max(config.COL_HISTORICO_MES, config.COL_HISTORICO_TIPO, config.COL_HISTORICO_QTD):
-                continue
-
-            texto_mes = colunas[config.COL_HISTORICO_MES].text.strip()
-            if texto_mes:
-                if dentro_do_mes_alvo and texto_mes != mes_alvo:
-                    break  # saiu do bloco do mês alvo, não precisa olhar o resto
-                mes_linha_atual = texto_mes
-                dentro_do_mes_alvo = (mes_linha_atual == mes_alvo)
-
-            if mes_linha_atual != mes_alvo:
+            if len(colunas) <= max(config.COL_HISTORICO_TIPO, config.COL_HISTORICO_QTD):
                 continue
 
             tipo = colunas[config.COL_HISTORICO_TIPO].text.strip()
-            if tipo != "Saídas":
-                continue  # "Reservas"/"Entradas" não contam como saída
+            if tipo not in ("Saídas", "Entradas"):
+                continue  # "Reservas" não é venda nem compra concretizada
 
-            total += self._texto_para_float(colunas[config.COL_HISTORICO_QTD].text)
+            qtd = self._texto_para_float(colunas[config.COL_HISTORICO_QTD].text)
+            if tipo == "Saídas":
+                total_saidas += qtd
+            else:
+                total_entradas += qtd
 
-        return total
+        meses_decorridos = datetime.date.today().month  # janeiro=1 ... conta o mês atual, mesmo parcial
+        return {
+            "saida_media_mensal": total_saidas / meses_decorridos,
+            "compra_media_mensal": total_entradas / meses_decorridos,
+        }
 
     @staticmethod
     def _texto_para_float(texto):
