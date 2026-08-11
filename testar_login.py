@@ -12,6 +12,14 @@ Uso:
 """
 
 import sys
+
+# No Windows, o console usa cp1252 por padrão, que não sabe imprimir os
+# emojis (✅/❌) usados abaixo — força saída em UTF-8 sem depender de
+# PYTHONIOENCODING ser setado externamente.
+if sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from scraper import scraper, ErroWtti
 
 print(f"Tentando logar em: {scraper.__class__.__module__}")
