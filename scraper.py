@@ -469,14 +469,18 @@ class WttiScraper:
             planilha = workbook.active
 
             col_codigo = col_qtd = None
+            cabecalho_encontrado = False
+
             for linha in planilha.iter_rows(values_only=True):
-                if col_codigo is None or col_qtd is None:
+                if not cabecalho_encontrado:
                     for idx, valor in enumerate(linha):
                         texto = str(valor).strip() if valor is not None else ""
                         if texto == config.COL_RANKING_CODIGO_NOME:
                             col_codigo = idx
                         elif texto == config.COL_RANKING_QTD_NOME:
                             col_qtd = idx
+                    if col_codigo is not None and col_qtd is not None:
+                        cabecalho_encontrado = True
                     continue  # essa linha é cabeçalho ou lixo antes da tabela — nunca é dado
 
                 if len(linha) <= max(col_codigo, col_qtd):
@@ -488,7 +492,22 @@ class WttiScraper:
                 valor_qtd = linha[col_qtd]
                 return float(valor_qtd) if valor_qtd is not None else 0.0
 
-            # Produto não apareceu no ranking do período: sem saída, não é erro.
+            if not cabecalho_encontrado:
+                # Isso NÃO significa "produto sem saída" — significa que o
+                # texto do cabeçalho configurado não bate com nada no Excel
+                # exportado (relatório mudou, ou COL_RANKING_*_NOME está
+                # errado). Devolver 0.0 aqui esconderia esse problema atrás
+                # de um número que parece legítimo.
+                raise ErroWtti(
+                    f'Não encontrei as colunas "{config.COL_RANKING_CODIGO_NOME}" / '
+                    f'"{config.COL_RANKING_QTD_NOME}" no Excel exportado do ranking. '
+                    f"O texto do cabeçalho pode ter mudado — confira "
+                    f"COL_RANKING_CODIGO_NOME / COL_RANKING_QTD_NOME no .env contra "
+                    f"o arquivo baixado."
+                )
+
+            # Cabeçalho encontrado, produto não apareceu no período: sem
+            # saída no período — isso sim é um resultado válido, não um erro.
             return 0.0
 
         finally:
